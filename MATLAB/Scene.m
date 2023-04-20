@@ -9,6 +9,7 @@ classdef Scene < handle
 		equalities % list of equality constraints
 		collisions % list of collisions
 		limits % list of joint limits
+        constraints %list of constraints
 		ground % ground transform, with Z up
 		tEnd % end time
 		qInit % initial positions
@@ -49,6 +50,7 @@ classdef Scene < handle
 			this.equalities = {};
 			this.collisions = {};
 			this.limits = {};
+            this.constraints = {};
 			this.ground.E = zeros(4);
 			this.ground.size = 10;
 			this.tEnd = 1;
@@ -97,18 +99,23 @@ classdef Scene < handle
 						
 			% Other initial values
 			this.nsteps = ceil(this.tEnd/this.h);
-            this.sub_steps = 20;
+            this.sub_steps = 30;
         end
 
         %%
         function solvePositions(this)
+            for i = 1 : length(this.constraints)
+                this.constraints{i}.solvePositions();
+            end
+            %{
             for i = 1 : length(this.collisions)
 				collision = this.collisions{i};
 				nbodies = length(collision.bodies);
                 % Ground collisions 
 				if nbodies == 1
                     body = collision.bodies{1};
-                    r1 = collision.xl{1};
+                    r1 = body.E_wi * [collision.xl{1}; 1];
+                    r1 = r1(1:3);
                     n = collision.nw;
                     c = collision.d;
                     temp = cross(r1, n);
@@ -120,6 +127,7 @@ classdef Scene < handle
                     body.q = body.q + 0.5 * quaternion([0 temp']) * body.q;
                 end
             end
+            %}
 		end
 
 		%%

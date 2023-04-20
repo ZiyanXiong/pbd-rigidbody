@@ -19,6 +19,7 @@ classdef (Abstract) Body < handle
         q_prev   % Previous quaternion
         w        % Angular Velocity
         E_wi     % Where the body is wrt world
+        E_iw     % The inverse of E_wi
         next     % Next body in traversal order
     end
 
@@ -114,6 +115,7 @@ classdef (Abstract) Body < handle
             end
             this.E_wi(1:3,1:3) = quat2rotm(this.q);
             this.E_wi(1:3,4) = this.x;
+            this.E_iw = se3.inv(this.E_wi);
         end
 
     end
