@@ -99,7 +99,7 @@ classdef Scene < handle
 						
 			% Other initial values
 			this.nsteps = ceil(this.tEnd/this.h);
-            this.sub_steps = 30;
+            this.sub_steps = 10;
         end
 
         %%

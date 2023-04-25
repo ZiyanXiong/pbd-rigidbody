@@ -6,12 +6,12 @@ scene.tEnd = 5;
 scene.bodies{1} = BodyCuboid(density,sides); %#ok<*SAGROW>
 scene.bodies{1}.v = [0 0 0]';
 scene.bodies{1}.w = [0 0 0]';
-scene.bodies{1}.x = [0 0 2]';
-scene.bodies{1}.q = quaternion([1 0.8 0.0 0]);
-scene.bodies{1}.E_wi(1:3,1:3) = quat2rotm(scene.bodies{1}.q);
-scene.bodies{1}.E_wi(1:3,4) = scene.bodies{1}.x;
+scene.bodies{1}.x = [0 0 5]';
+scene.bodies{1}.q = quaternion([1 0.0 0.0 0.0]);
+scene.bodies{1}.updateE();
 scene.bodies{1}.collide = true;
 scene.constraints{1} = ConstraintGroundContact({scene.bodies{1}}, scene.ground.E);
+scene.constraints{2} = ConstraintSphericalJoint({scene.bodies{1}}, [1.0 0.0 0]');
 scene.init();
 grav = [0 0 -9.8]';
 %grav = [0 0 0]';
@@ -28,10 +28,10 @@ for i = 0 : nsteps - 1
         for k = 1 : length(scene.bodies)
             scene.bodies{k}.updateAfterSolve(h);
         end
-        %scene.bodies{1}.w
-        draw(scene);
+        scene.bodies{1}.v
+        %draw(scene);
     end
-    %draw(scene);
+    draw(scene);
     scene.t = scene.t + scene.h;
 end
 

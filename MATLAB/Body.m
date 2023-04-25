@@ -85,6 +85,12 @@ classdef (Abstract) Body < handle
 				collisions = this.next.collideGround(groundE,planar,collisions);
 			end
 		end
+        %%
+        function updateE(this)
+            this.E_wi(1:3,1:3) = quat2rotm(this.q);
+            this.E_wi(1:3,4) = this.x;
+            this.E_iw = se3.inv(this.E_wi);
+        end
 
 		%%
 		function collisions = collideBody(this,that,planar,collisions)
@@ -101,9 +107,9 @@ classdef (Abstract) Body < handle
             this.q_prev = this.q;
             this.q = this.q + h * 0.5 * quaternion([0 this.w']) * this.q;
             this.q = normalize(this.q);
+            this.updateE();
         end
         %%
-
         function updateAfterSolve(this, h)
             this.v = (this.x - this.x_prev) / h;
             qinv = quatinv(this.q_prev);
@@ -113,9 +119,7 @@ classdef (Abstract) Body < handle
             if qA < 0
                 this.w = -this.w;
             end
-            this.E_wi(1:3,1:3) = quat2rotm(this.q);
-            this.E_wi(1:3,4) = this.x;
-            this.E_iw = se3.inv(this.E_wi);
+            this.updateE();
         end
 
     end
