@@ -93,7 +93,7 @@ classdef BodyCuboid < Body
 
 		%%
 		function collisions = collideBody_(this,that,planar,collisions)
-			if ~isa(that,'redmax.BodyCuboid')
+			if ~isa(that,'BodyCuboid')
 				% Only Cuboid-Cuboid is supported
 				return;
 			end
@@ -117,7 +117,7 @@ classdef BodyCuboid < Body
 				collision.xl{2} = that.E_iw(1:3,:)*[xw;1];
 				collision.xw = xw;
 				collision.nw = nw;
-				collision.Tw = this.getTangentBasis(collision,planar); % world tangent based on velocity
+				%collision.Tw = this.getTangentBasis(collision,planar); % world tangent based on velocity
 				collision.d = d;
 				collisions{end+1} = collision; %#ok<AGROW> 
 			end

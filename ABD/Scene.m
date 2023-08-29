@@ -80,6 +80,7 @@ classdef Scene < handle
 			this.Hexpected = zeros(1,2);
 			this.task = [];
 			this.solverInfo = [];
+            this.sub_steps = 30;
 		end
 		
 		%%
@@ -99,7 +100,6 @@ classdef Scene < handle
 						
 			% Other initial values
 			this.nsteps = ceil(this.tEnd/this.h);
-            this.sub_steps = 30;
         end
 
         %%

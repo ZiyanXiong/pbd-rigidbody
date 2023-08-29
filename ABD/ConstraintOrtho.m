@@ -32,7 +32,8 @@ classdef ConstraintOrtho < Constraint
                 this.C = C(i);
                 this.dC = dC(i,:);
                 solvePositions@Constraint(this);
-	        end
+            end
+            this.bodies{1}.updateE();
         end
     end
 end

@@ -41,7 +41,13 @@ classdef (Abstract) Body < handle
             this.qdot = zeros(12,1);
             this.qdot(1:3) = this.E_wi_dot(1:3,4);
             this.qdot(4:12) = reshape(this.E_wi_dot(1:3,1:3)',9,1);
-		end
+        end
+		%%
+        function updateE(this)
+            this.E_wi(1:3,4) = this.q(1:3);
+            this.E_wi(1:3,1:3) = reshape(this.q(4:12),3,3)'; % row-by-row
+            this.E_iw = se3.inv(this.E_wi);
+        end
 		%%
         function updateQdot(this)
 			% Sets the transform of this body wrt parent joint
@@ -55,7 +61,7 @@ classdef (Abstract) Body < handle
 			% Sets the transform of this body wrt parent joint
             this.E_wi = eye(4);
             this.E_wi(1:3,1:3) = A;
-            this.E_iw(4,1:3) = x;
+            this.E_wi(1:3,4) = x;
             this.q = [this.E_wi(1:3,4); reshape(this.E_wi(1:3,1:3)',9,1)];
         end
 		
@@ -94,7 +100,7 @@ classdef (Abstract) Body < handle
 			end
 			% Go to the next body
 			if ~isempty(this.next)
-				collisions = this.next.collideGround(groundE,planar,collisions);
+				%collisions = this.next.collideGround(groundE,planar,collisions);
 			end
 		end
 
@@ -108,8 +114,7 @@ classdef (Abstract) Body < handle
         function updateWithoutConstraints(this, force_ext, h)
             this.q_prev = this.q;
             this.q = this.q + h * this.qdot + h^2*(force_ext./this.M);
-            this.E_wi(1:3,4) = this.q(1:3);
-            this.E_wi(1:3,1:3) = reshape(this.q(4:12),3,3)'; % row-by-row
+            this.updateE();
         end
         %%
 

@@ -81,9 +81,9 @@ classdef (Abstract) Body < handle
 				collisions = this.collideGround_(groundE,planar,collisions);
 			end
 			% Go to the next body
-			if ~isempty(this.next)
-				collisions = this.next.collideGround(groundE,planar,collisions);
-			end
+			%if ~isempty(this.next)
+				%collisions = this.next.collideGround(groundE,planar,collisions);
+			%end
 		end
         %%
         function updateE(this)
