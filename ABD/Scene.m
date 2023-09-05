@@ -56,7 +56,7 @@ classdef Scene < handle
 			this.tEnd = 1;
 			this.qInit = [];
 			this.qdotInit = [];
-			this.h = 1e-2;
+			this.h = 3e-2;
 			this.t = 0;
 			this.k = 0;
 			this.mu = 0;

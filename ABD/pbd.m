@@ -8,6 +8,8 @@ scene.ground.E = eye(4);
 scene.tEnd = 5;
 scene.bodies{1} = BodyCuboid(density,sides); %#ok<*SAGROW>
 scene.bodies{2} = BodyCuboid(density,sides); %#ok<*SAGROW>
+%scene.bodies{3} = BodyCuboid(density,sides); %#ok<*SAGROW>
+%scene.bodies{4} = BodyCuboid(density,sides); %#ok<*SAGROW>
 E = eye(4);
 %E = se3.randE();
 %E(1:3,1:3) = se3.aaToMat([1 0 0],pi/2);
@@ -18,19 +20,56 @@ scene.bodies{1}.updateQdot();
 scene.bodies{1}.collide = true;
 
 E = eye(4);
-E(1:3,4) = [0.05 0 1]';
+E(1:3,4) = [0.25 0 0.75]';
 scene.bodies{2}.setBodyTransform(E(1:3,4), E(1:3,1:3));
 scene.bodies{2}.phi = [0 0 0 0 0 0]'; % rigid velocity in local space
 scene.bodies{2}.updateQdot();
 scene.bodies{2}.collide = true;
 
-scene.constraints{1} = ConstraintVolume({scene.bodies{1}});
-scene.constraints{2} = ConstraintOrtho({scene.bodies{1}});
-scene.constraints{3} = ConstraintVolume({scene.bodies{2}});
-scene.constraints{4} = ConstraintOrtho({scene.bodies{2}});
+%{
+E = eye(4);
+E(1:3,4) = [0.1 0 1.25]';
+scene.bodies{3}.setBodyTransform(E(1:3,4), E(1:3,1:3));
+scene.bodies{3}.phi = [0 0 0 0 0 0]'; % rigid velocity in local space
+scene.bodies{3}.updateQdot();
+scene.bodies{3}.collide = true;
+
+E = eye(4);
+E(1:3,4) = [0.15 0 1.75]';
+scene.bodies{4}.setBodyTransform(E(1:3,4), E(1:3,1:3));
+scene.bodies{4}.phi = [0 0 0 0 0 0]'; % rigid velocity in local space
+scene.bodies{4}.updateQdot();
+scene.bodies{4}.collide = true;
+%}
+
+
+%scene.constraints{7} = ConstraintVolume({scene.bodies{4}});
+%scene.constraints{8} = ConstraintOrtho({scene.bodies{4}});
+
+
+
 scene.constraints{5} = ConstraintBodiesContact({scene.bodies{1}, scene.bodies{2}});
+scene.constraints{3} = ConstraintVolume({scene.bodies{1}});
+scene.constraints{4} = ConstraintOrtho({scene.bodies{1}});
+scene.constraints{1} = ConstraintVolume({scene.bodies{2}});
+scene.constraints{2} = ConstraintOrtho({scene.bodies{2}});
+
 scene.constraints{6} = ConstraintGroundContact({scene.bodies{1}}, scene.ground.E);
-scene.constraints{7} = ConstraintGroundContact({scene.bodies{2}}, scene.ground.E);
+scene.constraints{3} = ConstraintVolume({scene.bodies{1}});
+scene.constraints{4} = ConstraintOrtho({scene.bodies{1}});
+
+%{
+scene.constraints{9} = ConstraintBodiesContact({scene.bodies{3}, scene.bodies{2}});
+
+scene.constraints{10} = ConstraintVolume({scene.bodies{2}});
+scene.constraints{11} = ConstraintOrtho({scene.bodies{2}});
+scene.constraints{12} = ConstraintVolume({scene.bodies{3}});
+scene.constraints{13} = ConstraintOrtho({scene.bodies{3}});
+%}
+
+%scene.constraints{11} = ConstraintBodiesContact({scene.bodies{2}, scene.bodies{3}});
+%scene.constraints{12} = ConstraintBodiesContact({scene.bodies{3}, scene.bodies{4}});
+%scene.constraints{9} = ConstraintGroundContact({scene.bodies{2}}, scene.ground.E);
 %scene.constraints{7} = ConstraintSphericalJoint({scene.bodies{1}}, [1.0 0.5 0.0]');
 %scene.constraints{7} = ConstraintSphericalJoint({scene.bodies{1}}, [-1.0 0.5 0.0]');
 %scene.constraints{8} = ConstraintSphericalJoint({scene.bodies{1}}, [-1.0 -0.5 0.0]');

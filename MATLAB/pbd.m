@@ -11,6 +11,7 @@ scene.bodies{1}.q = quaternion([1 0.0 0.0 0.0]);
 scene.bodies{1}.updateE();
 scene.bodies{1}.collide = true;
 scene.bodies{1}.name = 'body1';
+
 scene.bodies{2} = BodyCuboid(density,sides); %#ok<*SAGROW>
 scene.bodies{2}.v = [0 0 0]';
 scene.bodies{2}.w = [0 0 0]';
@@ -19,11 +20,32 @@ scene.bodies{2}.q = quaternion([1 0.0 0.0 0.0]);
 scene.bodies{2}.updateE();
 scene.bodies{2}.collide = true;
 scene.bodies{2}.name = 'body2';
+
+scene.bodies{3} = BodyCuboid(density,sides); %#ok<*SAGROW>
+scene.bodies{3}.v = [0 0 0]';
+scene.bodies{3}.w = [0 0 0]';
+scene.bodies{3}.x = [0.5 0 1.25]';
+scene.bodies{3}.q = quaternion([1 0.0 0.0 0.0]);
+scene.bodies{3}.updateE();
+scene.bodies{3}.collide = true;
+scene.bodies{3}.name = 'body3';
+
+scene.bodies{4} = BodyCuboid(density,sides); %#ok<*SAGROW>
+scene.bodies{4}.v = [0 0 0]';
+scene.bodies{4}.w = [0 0 0]';
+scene.bodies{4}.x = [0.75 0 1.75]';
+scene.bodies{4}.q = quaternion([1 0.0 0.0 0.0]);
+scene.bodies{4}.updateE();
+scene.bodies{4}.collide = true;
+scene.bodies{4}.name = 'body3';
+
 scene.constraints{1} = ConstraintGroundContact({scene.bodies{1}}, scene.ground.E);
 %scene.constraints{2} = ConstraintSphericalJoint({scene.bodies{1}}, [1.0 0.0 0]');
 %scene.constraints{2} = ConstraintSphericalJoint({scene.bodies{2}}, [1.0 0.0 0]');
 scene.constraints{2} = ConstraintGroundContact({scene.bodies{2}}, scene.ground.E);
 scene.constraints{3} = ConstraintBodiesContact({scene.bodies{1}, scene.bodies{2}});
+scene.constraints{4} = ConstraintBodiesContact({scene.bodies{2}, scene.bodies{3}});
+scene.constraints{5} = ConstraintBodiesContact({scene.bodies{3}, scene.bodies{4}});
 
 scene.init();
 grav = [0 0 -9.8]';
