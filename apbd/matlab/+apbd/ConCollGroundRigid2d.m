@@ -35,7 +35,8 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 		%%
 		function solveNorPos(this)
 			thresh = 1e-5; % threshold for not fully pushing out the contact point
-			%dist = (1 - thresh)*this.d;
+
+            %{
             dist = (1 - thresh) * this.body.transformPoint(this.xl);
             dist = dist(2);
 			this.C(1) = dist;
@@ -44,7 +45,10 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 			% Save Jacobi updates
 			this.body.dxJacobi(1:2) = this.body.dxJacobi(1:2) + dq(3:4);
 			this.body.dxJacobi(3:4) = this.body.dxJacobi(3:4) + dp(1:2);
-            %{
+            %}
+            
+            
+			dist = (1 - thresh)*this.d;
 			if dist < 0
 				this.C(1) = dist;
 				[this.dlambdaNor,dq,dp] = this.solvePosDir1(dist,this.nw);
@@ -53,7 +57,7 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 				this.body.dxJacobi(1:2) = this.body.dxJacobi(1:2) + dq(3:4);
 				this.body.dxJacobi(3:4) = this.body.dxJacobi(3:4) + dp(1:2);
 			end
-            %}
+            
 		end
 
 		%%

@@ -48,6 +48,27 @@ classdef (Abstract) Body < handle
 		function applyJacobi(this)
 			this.x = this.x + this.dxJacobi;
 			this.dxJacobi = zeros(this.n,1);
+            %{
+			E = this.computeTransform();
+            if ~(det(E(1:3,1:3))==1)
+                print("Not Rigid")
+                q = apbd.BodyRigid2d.unproj(this.x);
+                qNormalized = q ./ norm(q,2);
+                this.x(1:2) = qNormalized(3:4);
+                E = this.computeTransform();
+            end
+            %}
+            
+            if length(this.x) == 4
+                q = apbd.BodyRigid2d.unproj(this.x);
+                qNormalized = q ./ norm(q,2);
+                this.x(1:2) = qNormalized(3:4);
+            else
+                q = this.x(1:4);
+                qNormalized = q ./ norm(q,2);
+                this.x(1:4) = qNormalized;
+            end
+            
 		end
 
 		%%

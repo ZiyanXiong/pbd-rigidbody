@@ -126,7 +126,8 @@ classdef Model < handle
 			for i = 1 : length(this.constraints)
 				this.constraints{i}.clear();
             end
-
+		    %this.collider.run();
+            %collisions = this.collider.collisions;
 			for iter = 0 : this.iters-1 % index 0
 				%fprintf('  iter %d\n',iter);
 				% Clear the Jacobi updates
@@ -152,6 +153,7 @@ classdef Model < handle
 				for i = 1 : length(this.bodies)
 					this.bodies{i}.applyJacobi();
                 end
+                this.draw()
 
 				for j = 1 : length(collisions)
                     if isa(collisions{j}, 'apbd.ConCollRigidRigid2d')
@@ -161,7 +163,7 @@ classdef Model < handle
 				for i = 1 : length(this.bodies)
 					this.bodies{i}.applyJacobi();
                 end
-
+                this.draw()
 				%fprintf('\n');
 				% Update the collisions with the latest body states
 				for j = 1 : length(collisions)

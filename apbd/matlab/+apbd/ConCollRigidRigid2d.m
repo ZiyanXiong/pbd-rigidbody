@@ -47,6 +47,7 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 		function solveNorPos(this)
 			thresh = 1e-5; % threshold for not fully pushing out the contact point
 			
+            
             xw1 = this.body1.transformPoint(this.x1);
 			xw2 = this.body2.transformPoint(this.x2);
 			% The normal stored in this object points from body1 to body2,
@@ -54,7 +55,8 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 			dx = xw2 - xw1;
 			dist = (1 - thresh)*norm(dx);
             nw = -normalize(dx,"norm",1);
-
+            
+            
 		    this.C(1) = dist;
 		    [this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
 		    this.lambda(1) = this.lambda(1) + this.dlambdaNor;
@@ -78,10 +80,10 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 				[this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
 				this.lambda(1) = this.lambda(1) + this.dlambdaNor;
 				% Save Jacobi updates
-				this.body1.dxJacobi(1:4) = this.body1.dxJacobi(1:4) + dq1;
-				this.body2.dxJacobi(1:4) = this.body2.dxJacobi(1:4) + dq2;
-				this.body1.dxJacobi(5:7) = this.body1.dxJacobi(5:7) + dp1;
-				this.body2.dxJacobi(5:7) = this.body2.dxJacobi(5:7) + dp2;
+			this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
+			this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
+			this.body2.dxJacobi(1:2) = this.body2.dxJacobi(1:2) + dq2(3:4);
+			this.body2.dxJacobi(3:4) = this.body2.dxJacobi(3:4) + dp2(1:2);
 			end
             %}
 		end
