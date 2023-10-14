@@ -65,11 +65,11 @@ classdef Collider < handle
 				for k = 1 : length(cdata)
 					c = cdata(k);
 					if isa(body,'apbd.BodyRigid')
-						this.collisions{end+1} = apbd.ConCollGroundRigid(body,Eg);
+						this.collisions{end+1} = apbd.ConCollGroundRigidVal(body,Eg);
 					elseif isa(body,'apbd.BodyRigid2d')
-						this.collisions{end+1} = apbd.ConCollGroundRigid2d(body,Eg);
+						this.collisions{end+1} = apbd.ConCollGroundRigid2dLinear(body,Eg);
 					elseif isa(body,'apbd.BodyAffine')
-						this.collisions{end+1} = apbd.ConCollGroundAffine(body,Eg);
+						this.collisions{end+1} = apbd.ConCollGroundAffineVal(body,Eg);
 					end
 					this.collisions{end}.d = c.d;
 					this.collisions{end}.xl = c.xl;
@@ -87,10 +87,13 @@ classdef Collider < handle
 				for k = 1 : length(cdata)
 					c = cdata(k);
 					if isa(body1,'apbd.BodyRigid') && isa(body2,'apbd.BodyRigid')
-							this.collisions{end+1} = apbd.ConCollRigidRigid(body1,body2);
+							this.collisions{end+1} = apbd.ConCollRigidRigidVal(body1,body2);
                     end
 					if isa(body1,'apbd.BodyRigid2d') && isa(body2,'apbd.BodyRigid2d')
-					    this.collisions{end+1} = apbd.ConCollRigidRigid2d(body1,body2);
+					    this.collisions{end+1} = apbd.ConCollRigidRigid2dLinear(body1,body2);
+                    end
+					if isa(body1,'apbd.BodyAffine') && isa(body2,'apbd.BodyAffine')
+					    this.collisions{end+1} = apbd.ConCollAffineAffineVal(body1,body2);
 					end
 					this.collisions{end}.setData(c);
 				end

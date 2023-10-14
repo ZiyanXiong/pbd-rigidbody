@@ -272,11 +272,11 @@ switch(modelID)
 
 		model.ground.size = 10;
 		model.axis = 5*[-1 1 -1 1 0 1];
-		model.drawHz = 30;
+		model.drawHz = 1000;
 
 		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 		model.bodies{end}.collide = true;
-		model.bodies{end}.mu = 1.0;%*(sin(angle)/cos(angle));
+		model.bodies{end}.mu = 1.0*(sin(angle)/cos(angle));
 		E = eye(4);
 		E(1:3,1:3) = R;
 		E(1:3,4) = R*[0 0 w/2]';
@@ -289,17 +289,19 @@ switch(modelID)
 		model.tEnd = 1;
 		model.h = 1e-2;
 		model.substeps = 1;
-		model.iters = 10;
+		model.iters = 200;
 		density = 1.0;
 		w = 1;
 		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.0;
+		mu = 0.9;
 
 		model.ground.size = 10;
 		model.axis = 5*[-1 1 -1 1 0 1];
 		model.drawHz = 10000;
+
+		model.view = [0 0];
 
 		n = 2;
 		for i = 1 : n
@@ -309,22 +311,23 @@ switch(modelID)
 			E = eye(4);
 			x = 0.1*i;
 			y = 0;
-			z = (i-0.5)*w;
+			z = (i-0.5)*w*0.99;
 			E(1:3,4) = [x y z]';
 			model.bodies{end}.setInitTransform(E);
+            model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
 		end
 	case 8
 		model.name = '2D Rigid Body';
 		model.plotH = false;
-		model.tEnd = 0.5;
+		model.tEnd = 10.5;
 		model.h = 1e-2;
 		model.substeps = 1;
-		model.iters = 20;
+		model.iters = 10;
 		density = 1.0;
 		l = 1;
 		w = 1;
 		sides = [l w w];
-		model.grav = [0 0 0]';
+		model.grav = [0 -980 0]';
 		model.ground.E = eye(4);
 
 		R = se3.aaToMat([1 0 0],-pi/2);
@@ -334,16 +337,20 @@ switch(modelID)
 		model.axis = 5*[-1 1 -0 1 -1 1];
 		model.view = 2;
 		model.drawHz = 10000;
-		n = 3;
+		n = 1;
 		for i = 1 : n
 		    model.bodies{end+1} = apbd.BodyRigid2d(apbd.ShapeCuboid(sides),density);
 		    model.bodies{end}.collide = true;
-		    model.bodies{end}.mu = 0.0;
+		    model.bodies{end}.mu = 0.9;
+            if(i ~= 1)
+                %model.bodies{end}.color = model.bodies{end - 1}.color;
+            end
 		    E = eye(4);
-			x = 0.1*i;
-			y = (i-0.5)*w*0.6 + 2;
+			x = 0.05*i;
+			y = (i-0.5)*w*0.99;
 			z = 0;
 			E(1:3,4) = [x y z]';
+            %E(1:3,4) = [0 -0.5 0]';
 		    model.bodies{end}.setInitTransform(E);
 		    model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         end
@@ -411,6 +418,41 @@ switch(modelID)
 		E(1:3,4) = [0 0 5]';
 		model.bodies{end}.setInitTransform(E);
 		%model.bodies{end}.setInitVelocity([0 0 0 0 0 10]');
+
+        case 11
+		model.name = 'Affine Body Ground';
+		model.plotH = false;
+		model.tEnd = 10.5;
+		model.h = 1e-2;
+		model.substeps = 1;
+		model.iters = 400;
+		density = 1.0;
+		l = 1;
+		w = 1;
+		sides = [l w w];
+		model.grav = [0 0 -980]';
+		model.ground.E = eye(4);
+
+		model.ground.size = 10;
+
+        %model.axis = 5*[-1 1 -0 1 -1 1];
+		model.axis = 5*[-1 1 -1 1 0 1];
+		model.drawHz = 10000;
+		model.view = [0 0];
+		n = 1;
+		for i = 1 : n
+    		model.bodies{end+1} = apbd.BodyAffine(apbd.ShapeCuboid(sides),density);
+		    %model.constraints{end+1} = apbd.ConAffine(model.bodies{end});
+		    model.bodies{end}.collide = true;
+		    model.bodies{end}.mu = 0.9;
+		    E = eye(4);
+			x = 0.1*i;
+			y = 0;
+			z = (i-0.5)*w*0.99;
+			E(1:3,4) = [x y z]';
+		    model.bodies{end}.setInitTransform(E);
+		    model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+        end
 end
 
 end

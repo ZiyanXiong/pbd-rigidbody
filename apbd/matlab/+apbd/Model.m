@@ -101,21 +101,199 @@ classdef Model < handle
 			while this.k < this.steps
 				this.ks = 0;
 				while this.ks < this.substeps
+                    this.collider.run();
 					this.stepBDF1();
-					this.solveCon();
+					%this.solveCon();
+                    this.solveConGS();
 					this.t = this.t + this.hs;
 					this.ks = this.ks + 1;
+                    %this.rigidify();
 				end
 				this.k = this.k + 1;
 				this.computeEnergies();
 				this.draw();
 			end
-		end
+        end
+
+        %%
+        function applyimplulse(this, depth)
+			this.draw();
+            
+            for i = 1:length(this.bodies)
+                this.bodies{i}.x1 = this.bodies{i}.x;
+                if(i ~= 1)
+                    %this.bodies{i}.x = this.bodies{i -1}.x;
+                end
+                this.collider.collisions{end+1} = apbd.ConCollGroundRigid2dLinear(this.bodies{i},this.ground.E);
+			    this.collider.collisions{end}.d = depth * i;
+		        this.collider.collisions{end}.xl = [0.5 -0.5 0]';
+			    this.collider.collisions{end}.nw = [0 1 0]';
+                this.collider.collisions{end}.solveNorPos();
+                this.bodies{i}.applyJacobi();
+			    this.draw();
+            end
+
+            %{
+			this.collider.collisions{end}.d = -depth;
+            this.collider.collisions{end}.solveNorPos();
+	        for i = 1 : length(this.bodies)
+                this.bodies{i}.applyJacobi();
+            end
+			this.draw();
+            %}
+        end
+
+        %%
+        function c = computeC(this, p1, p2)
+            nw = [0 1 0]';
+            rl1 = [-0.5 -0.5 0]';
+            rl2 = [0.5 -0.5 0]';
+		    m1 = this.bodies{1}.Mp;
+		    I1 = this.bodies{1}.Mr;
+
+	        % Position update
+	        dpw = p1*nw;
+	        dp1 = dpw/m1;
+	        % Quaternion update
+            q1 = apbd.BodyRigid2d.unproj(this.bodies{1}.x1);
+	        dpl1 = se3.qRotInv(q1,dpw);
+	        qtmp1 = [se3.qRot(q1, I1.\se3.cross(rl1,dpl1)); 0];
+            %qtmp1 = [I1.\se3.cross(rl1,dpl1); 0];
+	        dq1 = 0.5*se3.qMul(qtmp1,q1);
+            dx = [0 0 0 0]';
+            dx(1:2) = dq1(3:4);
+            dx(3:4) = dp1(1:2);
+            this.bodies{1}.x = this.bodies{1}.x1 + dx;
+            
+	        dpw = p2*nw;
+	        dp1 = dpw/m1;
+	        % Quaternion update
+            q1 = apbd.BodyRigid2d.unproj(this.bodies{1}.x1);
+	        dpl1 = se3.qRotInv(q1,dpw);
+	        qtmp1 = [se3.qRot(q1, I1.\se3.cross(rl2,dpl1)); 0];
+            %qtmp1 = [I1.\se3.cross(rl1,dpl1); 0];
+	        dq1 = 0.5*se3.qMul(qtmp1,q1);
+            dx = [0 0 0 0]';
+            dx(1:2) = dq1(3:4);
+            dx(3:4) = dp1(1:2);
+            this.bodies{1}.x = this.bodies{1}.x + dx;
+            
+
+	        xw1 = this.bodies{1}.transformPoint(rl1);
+	        [q, p] = apbd.BodyRigid2d.unproj(this.bodies{1}.x0);
+	        xwi = se3.qRot(q,rl1) + p;
+            d1 = dot(nw, xw1 - xwi);
+            xw2 = this.bodies{1}.transformPoint(rl2);
+            xwi = se3.qRot(q,rl2) + p;
+            d2 = dot(nw, xw2 - xwi);
+            c = 0.5 * d1^2 + 0.5 * d2^2;
+        end
+
+        %%
+        function plotC(this)
+            %this.bodies{1}.x = this.bodies{1}.x +  [0.2 0 0 -0.02]';
+            this.bodies{1}.x1 = this.bodies{1}.x;
+            this.bodies{1}.x0 = this.bodies{1}.x + [0 0 0 1]';
+            
+            this.collider.collisions{end+1} = apbd.ConCollGroundRigid2dLinear(this.bodies{1},this.ground.E);
+		    this.collider.collisions{end}.d = 0;
+	        this.collider.collisions{end}.xl = [-0.5 -0.5 0]';
+		    this.collider.collisions{end}.nw = [0 1 0]';
+
+            this.collider.collisions{end+1} = apbd.ConCollGroundRigid2dLinear(this.bodies{1},this.ground.E);
+		    this.collider.collisions{end}.d = 0;
+	        this.collider.collisions{end}.xl = [0.5 -0.5 0]';
+		    this.collider.collisions{end}.nw = [0 1 0]';
+
+            % Plot the value of C
+            p1 = -0.1:0.02:1.2;
+            p2 = -0.1:0.02:1.2;
+            [p1g, p2g] = meshgrid(p1,p2) ;
+            c = zeros(length(p1));
+            
+            for i = 1:length(p1)
+                for j = 1:length(p2)
+                    c(i,j) = this.computeC(p1g(i,j), p2g(i,j));
+                end
+            end
+
+            surf(p1g,p2g,c)
+            hold on;
+
+            p1_history = zeros(this.iters, 1);
+            p2_history = zeros(this.iters, 1);
+            c_history = zeros(this.iters, 1);
+            c_acc = zeros(this.iters, 1);
+
+            this.bodies{1}.x = this.bodies{1}.x1;
+			for i = 1 : length(this.constraints)
+				this.constraints{i}.clear();
+            end
+		    %this.collider.run();
+            collisions = this.collider.collisions;
+			for iter = 1 : this.iters % index 0
+				for j = 1 : length(collisions)
+					collisions{j}.update();
+                end
+
+                p1_history(iter) = collisions{1}.lambda(1);
+                p2_history(iter) = collisions{2}.lambda(1);
+                c_history(iter) = 0.5 * collisions{1}.d^2 + 0.5 * collisions{2}.d^2;
+
+				%fprintf('  iter %d\n',iter);
+				% Clear the Jacobi updates
+				for i = 1 : length(this.bodies)
+					this.bodies{i}.clearJacobi();
+				end
+				% Gauss-Seidel solve for non-collision constraints
+				for j = 1 : length(this.constraints)
+					this.constraints{j}.solve();
+                end
+				% Update the collisions with the latest body states
+				for j = 1 : length(collisions)
+					collisions{j}.update();
+                    collisions{j}.solveNorPos();
+                    %collisions{j}.solveTanVel(this.k,this.ks,this.hs);
+    		        for i = 1 : length(this.bodies)
+                        this.bodies{i}.applyJacobi();
+                    end
+                end
+            end
+
+            this.bodies{1}.x = this.bodies{1}.x1;
+            for iter = 1 : this.iters % index 0
+                c_acc(iter) = this.computeC(p1_history(iter), p2_history(iter));
+            end
+            plot3(p1_history, p2_history, c_history,'-*', color="green")
+            hold on;
+            %plot3(p1_history, p2_history, c_acc,'-*', color="yellow")
+        end
 
 		%%
 		function stepBDF1(this)
 			for i = 1 : length(this.bodies)
 				this.bodies{i}.stepBDF1(this.k,this.ks,this.hs,this.grav);
+                this.bodies{i}.x1 = this.bodies{i}.x;
+			end
+        end
+
+		%%
+        function rigidify(this)
+			for i = 1 : length(this.bodies)
+                if length(this.bodies{i}.x) == 4
+                    q = apbd.BodyRigid2d.unproj(this.bodies{i}.x);
+                    qNormalized = q ./ norm(q,2);
+                    this.bodies{i}.x(1:2) = qNormalized(3:4);
+                elseif length(this.bodies{i}.x) == 7
+                    q = this.bodies{i}.x(1:4);
+                    qNormalized = q ./ norm(q,2);
+                    this.bodies{i}.x(1:4) = qNormalized;
+                elseif length(this.bodies{i}.x) == 12
+                    A = reshape(this.bodies{i}.x(1:9),3,3)';
+                    [U,~,V] = svd(A);
+                    A = U * V';
+                    this.bodies{i}.x(1:9) = reshape(A',9,1);
+                end
 			end
 		end
 
@@ -127,7 +305,7 @@ classdef Model < handle
 				this.constraints{i}.clear();
             end
 		    %this.collider.run();
-            %collisions = this.collider.collisions;
+            collisions = this.collider.collisions;
 			for iter = 0 : this.iters-1 % index 0
 				%fprintf('  iter %d\n',iter);
 				% Clear the Jacobi updates
@@ -141,10 +319,15 @@ classdef Model < handle
 
 				% Solve all collision normals at the position level
 				%fprintf('    ');
-			    this.collider.run();
-                collisions = this.collider.collisions;
+			    %this.collider.run();
+                %collisions = this.collider.collisions;
+
+				% Update the collisions with the latest body states
 				for j = 1 : length(collisions)
-                    if isa(collisions{j}, 'apbd.ConCollGroundRigid2d')
+					collisions{j}.update();
+                end
+				for j = 1 : length(collisions)
+                    if isa(collisions{j}, 'apbd.ConCollGroundRigid2dVal')
 					    collisions{j}.solveNorPos();
                     end
 				end
@@ -153,36 +336,82 @@ classdef Model < handle
 				for i = 1 : length(this.bodies)
 					this.bodies{i}.applyJacobi();
                 end
-                this.draw()
+                %this.draw()
+
+				% Update the collisions with the latest body states
+				for j = 1 : length(collisions)
+					collisions{j}.update();
+                end
 
 				for j = 1 : length(collisions)
-                    if isa(collisions{j}, 'apbd.ConCollRigidRigid2d')
+                    if isa(collisions{j}, 'apbd.ConCollRigidRigid2dVal')
 					    collisions{j}.solveNorPos();
                     end
 				end
 				for i = 1 : length(this.bodies)
 					this.bodies{i}.applyJacobi();
+                    %this.draw();
                 end
-                this.draw()
-				%fprintf('\n');
+                
+			    % Solve all collision tangents at the velocity level
+			    for j = 1 : length(collisions)
+				    %collisions{j}.solveTanVel(this.k,this.ks,this.hs);
+				    %fprintf('%e\n',collisions{j}.C(1));
+			    end
+			    % Apply Jacobi updates
+			    %fprintf('    ');
+			    for i = 1 : length(this.bodies)
+				    %this.bodies{i}.applyJacobi();
+				    %fprintf('%e ',this.bodies{i}.x(end));
+			    end
+			    %fprintf('\n');
+                %this.draw()
+            end
+		end
+
+		%%
+		function solveConGS(this)
+			%this.draw();
+			%fprintf('substep %d\n',this.ks);
+			for i = 1 : length(this.constraints)
+				this.constraints{i}.clear();
+            end
+		    %this.collider.run();
+            collisions = this.collider.collisions;
+			for iter = 0 : this.iters-1 % index 0
+				%fprintf('  iter %d\n',iter);
+				% Clear the Jacobi updates
+				for i = 1 : length(this.bodies)
+					this.bodies{i}.clearJacobi();
+				end
+				% Gauss-Seidel solve for non-collision constraints
+				for j = 1 : length(this.constraints)
+					this.constraints{j}.solve();
+				end
+                %this.draw();
 				% Update the collisions with the latest body states
 				for j = 1 : length(collisions)
-					%collisions{j}.update();
-				end
-				% Solve all collision tangents at the velocity level
-				for j = 1 : length(collisions)
-					%collisions{j}.solveTanVel(this.k,this.ks,this.hs);
-					%fprintf('%e\n',collisions{j}.C(1));
-				end
-				% Apply Jacobi updates
-				%fprintf('    ');
-				for i = 1 : length(this.bodies)
-					%this.bodies{i}.applyJacobi();
-					%fprintf('%e ',this.bodies{i}.x(end));
-				end
-				%fprintf('\n');
-				%this.draw();
-			end
+					collisions{j}.update();
+                    collisions{j}.solveNorPos();
+                    %collisions{j}.solveTanVel(this.k,this.ks,this.hs);
+    		        for i = 1 : length(this.bodies)
+                        this.bodies{i}.applyJacobi();
+                    end
+                    %this.draw();
+                end
+                %this.draw();
+                
+			    for j = 1 : length(collisions)
+				    %collisions{j}.solveTanVel(this.k,this.ks,this.hs);
+    			    for i = 1 : length(this.bodies)
+				        %this.bodies{i}.applyJacobi();
+				        %fprintf('%e ',this.bodies{i}.x(end));
+			        end
+				    %fprintf('%e\n',collisions{j}.C(1));
+                end
+                
+                %this.draw()
+            end
 		end
 
 		%%

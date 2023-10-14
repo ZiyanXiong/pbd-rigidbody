@@ -1,4 +1,4 @@
-classdef ConCollGroundRigid2d < apbd.ConColl
+classdef ConCollGroundRigid2dVal < apbd.ConColl
 	%ConCollGroundRigid2d Collision between a rigid body and the ground
 
 	properties
@@ -11,7 +11,7 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 
 	methods
 		%%
-		function this = ConCollGroundRigid2d(body,Eg)
+		function this = ConCollGroundRigid2dVal(body,Eg)
 			this = this@apbd.ConColl();
 			this.body = body;
 			this.Eg = Eg;
@@ -29,7 +29,11 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 		function update(this)
 			this.xw = this.body.transformPoint(this.xl);
 			xg = this.Eg\[this.xw;1];
-			this.d = xg(3);
+
+			[q,p] = apbd.BodyRigid2d.unproj(this.body.x0);
+			xwi = se3.qRot(q,this.xl) + p;
+            xgi = this.Eg\[xwi;1];
+			this.d = xg(3) - xgi(3);
 		end
 
 		%%
@@ -49,9 +53,22 @@ classdef ConCollGroundRigid2d < apbd.ConColl
             
             
 			dist = (1 - thresh)*this.d;
-			if dist < 1.0
+
+            %{
+            [this.dlambdaNor,dq,dp] = this.solvePosDir1(dist,this.nw);
+
+			this.C(1) = dist;
+			this.lambda(1) = this.lambda(1) + this.dlambdaNor;
+			% Save Jacobi updates
+			this.body.dxJacobi(1:2) = this.body.dxJacobi(1:2) + dq(3:4);
+			this.body.dxJacobi(3:4) = this.body.dxJacobi(3:4) + dp(1:2);
+            %}
+
+            %if dist <= 0.0
+            if true
+			%if this.lambda(1) >= 0.0
 				this.C(1) = dist;
-				[this.dlambdaNor,dq,dp] = this.solvePosDir1(dist,this.nw);
+                [this.dlambdaNor,dq,dp] = this.solvePosDir1(dist,this.nw);
 				this.lambda(1) = this.lambda(1) + this.dlambdaNor;
 				% Save Jacobi updates
 				this.body.dxJacobi(1:2) = this.body.dxJacobi(1:2) + dq(3:4);
@@ -63,7 +80,7 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 		%%
 		function solveTanVel(this,k,ks,hs)
 			mu = this.body.mu;
-			if mu > 0 && this.dlambdaNor > 0
+			if mu > 0 
 				%[tx,ty] = apbd.ConColl.generateTangents(this.nw);
 				tx = this.Eg(1:3,1);
 				ty = this.Eg(1:3,2);

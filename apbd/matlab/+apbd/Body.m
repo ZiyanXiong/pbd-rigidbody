@@ -8,6 +8,7 @@ classdef (Abstract) Body < handle
 		xdotInit % Initial velocity
         x        % position
         x0       % Previous position
+        x1       % Position after BDF1 Update
 		dxJacobi % Jacobi updates
 		collide  % Collision on/off
 		mu       % Coefficient of friction
@@ -25,6 +26,7 @@ classdef (Abstract) Body < handle
 			this.xdotInit = zeros(n,1);
 			this.x = zeros(n,1);
 			this.x0 = zeros(n,1);
+            this.x1 = zeros(n,1);
 			this.dxJacobi = zeros(n,1);
 			this.collide = false;
 			this.mu = 0;
@@ -63,10 +65,15 @@ classdef (Abstract) Body < handle
                 q = apbd.BodyRigid2d.unproj(this.x);
                 qNormalized = q ./ norm(q,2);
                 this.x(1:2) = qNormalized(3:4);
-            else
+            elseif length(this.x) == 7
                 q = this.x(1:4);
                 qNormalized = q ./ norm(q,2);
                 this.x(1:4) = qNormalized;
+            elseif length(this.x) == 12
+                A = reshape(this.x(1:9),3,3)';
+                [U,~,V] = svd(A);
+                A = U * V';
+                this.x(1:9) = reshape(A',9,1);
             end
             
 		end
