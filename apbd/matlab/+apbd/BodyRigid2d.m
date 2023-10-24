@@ -53,8 +53,8 @@ classdef BodyRigid2d < apbd.Body
 			this.xdotInit(3:4) = pdot(1:2);
 			qdot = se3.wToQdot(q,phi(1:3));
 			this.xdotInit(1:2) = qdot(3:4);
-		end
-		
+        end
+
 		%%
 		function E = computeTransform(this)
 			E = eye(4);
@@ -97,7 +97,8 @@ classdef BodyRigid2d < apbd.Body
 
 		%%
 		function v = computePointVel(this,xl,k,ks,hs)
-			xdot = this.computeVelocity(k,ks,hs);
+			%xdot = this.computeVelocity(k,ks,hs);
+            xdot = (this.x - this.x0)/hs;
 			[qdot,pdot] = apbd.BodyRigid2d.unprojVel(xdot);
 			q = apbd.BodyRigid2d.unproj(this.x);
 			w = se3.qdotToW(q,qdot); % angular velocity in body coords
@@ -130,6 +131,8 @@ classdef BodyRigid2d < apbd.Body
 			%fprintf('%f %f\n',q(3:4));
 			this.x(1:2) = q(3:4);
 			this.x(3:4) = p(1:2);
+            this.x1_0 = this.x;
+            this.x1 = this.x1_0;
 		end
 
 		%%

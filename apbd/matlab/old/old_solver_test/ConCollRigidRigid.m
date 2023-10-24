@@ -1,4 +1,4 @@
-classdef ConCollRigidRigid2dVal < apbd.ConColl
+classdef ConCollRigidRigid < apbd.ConColl
 	%ConCollRigidRigid Collision between two rigid bodies
 
 	properties
@@ -10,7 +10,7 @@ classdef ConCollRigidRigid2dVal < apbd.ConColl
 
 	methods
 		%%
-		function this = ConCollRigidRigid2dVal(body1,body2)
+		function this = ConCollRigidRigid(body1,body2)
 			this = this@apbd.ConColl();
 			this.body1 = body1;
 			this.body2 = body2;
@@ -37,56 +37,53 @@ classdef ConCollRigidRigid2dVal < apbd.ConColl
 			% the new world positions and the new distance.
 			xw1 = this.body1.transformPoint(this.x1);
 			xw2 = this.body2.transformPoint(this.x2);
-
-			[q,p] = apbd.BodyRigid2d.unproj(this.body1.x0);
-			xw1i = se3.qRot(q,this.x1) + p;
-
-			[q,p] = apbd.BodyRigid2d.unproj(this.body2.x0);
-			xw2i = se3.qRot(q,this.x2) + p;
-
 			% The normal stored in this object points from body1 to body2,
 			% and a collision occurs if the distance is negative.
-			%dval = (xw2 - xw2i) + (xw1 - xw1i);
-            dval = (xw2 - xw1) - (xw2i - xw1i);
-			this.d = this.nw'*dval;
+			dx = xw2 - xw1;
+			this.d = this.nw'*dx;
 		end
 
 		%%
 		function solveNorPos(this)
 			thresh = 1e-5; % threshold for not fully pushing out the contact point
-			            
-            dist = (1 - thresh)* this.d;
-            nw = -this.nw;
+			
+            xw1 = this.body1.transformPoint(this.x1);
+			xw2 = this.body2.transformPoint(this.x2);
+			% The normal stored in this object points from body1 to body2,
+			% and a collision occurs if the distance is negative.
+			dx = xw2 - xw1;
+			dist = (1 - thresh)*norm(dx);
+            nw = -normalize(dx,"norm",1);
+
+		    this.C(1) = dist;
+		    [this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
+		    this.lambda(1) = this.lambda(1) + this.dlambdaNor;
+		    % Save Jacobi updates
+		    this.body1.dxJacobi(1:4) = this.body1.dxJacobi(1:4) + dq1;
+		    this.body2.dxJacobi(1:4) = this.body2.dxJacobi(1:4) + dq2;
+		    this.body1.dxJacobi(5:7) = this.body1.dxJacobi(5:7) + dp1;
+		    this.body2.dxJacobi(5:7) = this.body2.dxJacobi(5:7) + dp2;
+            
+			%fprintf('%d ',dist < 0);
 
             %{
-			[this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
-			this.C(1) = dist;
-			this.lambda(1) = this.lambda(1) + this.dlambdaNor;
-			% Save Jacobi updates
-		    this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
-		    this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
-		    this.body2.dxJacobi(1:2) = this.body2.dxJacobi(1:2) + dq2(3:4);
-		    this.body2.dxJacobi(3:4) = this.body2.dxJacobi(3:4) + dp2(1:2);
-            %}
-
-            
-			%if dist <= 0.0
-            if true 
-            %if this.lambda(1) >= 0.0
+            dist = (1 - thresh)* this.d;
+			if dist < 0
 				% Negate the normal here, since the rest of the code
 				% assumes that the normal points into body 1. (Ground
 				% contact uses the ground normal, which points into the
 				% body.)
+				nw = -this.nw;
 				this.C(1) = dist;
-    			[this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
+				[this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
 				this.lambda(1) = this.lambda(1) + this.dlambdaNor;
 				% Save Jacobi updates
-			    this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
-			    this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
-			    this.body2.dxJacobi(1:2) = this.body2.dxJacobi(1:2) + dq2(3:4);
-			    this.body2.dxJacobi(3:4) = this.body2.dxJacobi(3:4) + dp2(1:2);
+				this.body1.dxJacobi(1:4) = this.body1.dxJacobi(1:4) + dq1;
+				this.body2.dxJacobi(1:4) = this.body2.dxJacobi(1:4) + dq2;
+				this.body1.dxJacobi(5:7) = this.body1.dxJacobi(5:7) + dp1;
+				this.body2.dxJacobi(5:7) = this.body2.dxJacobi(5:7) + dp2;
 			end
-            
+            %}
 		end
 
 		%%
@@ -117,14 +114,10 @@ classdef ConCollRigidRigid2dVal < apbd.ConColl
 				this.lambda(2) = this.lambda(2) + scale*dlambdaTx;
 				this.lambda(3) = this.lambda(3) + scale*dlambdaTy;
 				% Save Jacobi updates
-                dq1 = scale*(dqTx1 + dqTy1);
-                dq2 = scale*(dqTx2 + dqTy2);
-                dp1 = scale*(dpTx1 + dpTy1);
-                dp2 = scale*(dpTx2 + dpTy2);
-			    this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
-			    this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
-			    this.body2.dxJacobi(1:2) = this.body2.dxJacobi(1:2) + dq2(3:4);
-			    this.body2.dxJacobi(3:4) = this.body2.dxJacobi(3:4) + dp2(1:2);
+				this.body1.dxJacobi(1:4) = this.body1.dxJacobi(1:4) + scale*(dqTx1 + dqTy1);
+				this.body2.dxJacobi(1:4) = this.body2.dxJacobi(1:4) + scale*(dqTx2 + dqTy2);
+				this.body1.dxJacobi(5:7) = this.body1.dxJacobi(5:7) + scale*(dpTx1 + dpTy1);
+				this.body2.dxJacobi(5:7) = this.body2.dxJacobi(5:7) + scale*(dpTx2 + dpTy2);
 			end
 		end
 
@@ -135,8 +128,8 @@ classdef ConCollRigidRigid2dVal < apbd.ConColl
 			m2 = this.body2.Mp;
 			I1 = this.body1.Mr;
 			I2 = this.body2.Mr;
-			q1 = apbd.BodyRigid2d.unproj(this.body1.x);
-            q2 = apbd.BodyRigid2d.unproj(this.body2.x);
+			q1 = this.body1.x(1:4);
+			q2 = this.body2.x(1:4);
 			nl1 = se3.qRotInv(q1,nw);
 			nl2 = se3.qRotInv(q2,nw);
 			rl1 = this.x1;

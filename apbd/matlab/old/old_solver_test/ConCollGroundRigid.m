@@ -1,4 +1,4 @@
-classdef ConCollGroundRigidVal < apbd.ConColl
+classdef ConCollGroundRigid < apbd.ConColl
 	%ConCollGroundRigid Collision between a rigid body and the ground
 
 	properties
@@ -11,7 +11,7 @@ classdef ConCollGroundRigidVal < apbd.ConColl
 
 	methods
 		%%
-		function this = ConCollGroundRigidVal(body,Eg)
+		function this = ConCollGroundRigid(body,Eg)
 			this = this@apbd.ConColl();
 			this.body = body;
 			this.Eg = Eg;
@@ -29,12 +29,7 @@ classdef ConCollGroundRigidVal < apbd.ConColl
 		function update(this)
 			this.xw = this.body.transformPoint(this.xl);
 			xg = this.Eg\[this.xw;1];
-
-            q = this.body.x0(1:4);
-            p = this.body.x0(5:7);
-			xwi = se3.qRot(q,this.xl) + p;
-            xgi = this.Eg\[xwi;1];
-			this.d = xg(3) - xgi(3);
+			this.d = xg(3);
 		end
 
 		%%
@@ -42,6 +37,7 @@ classdef ConCollGroundRigidVal < apbd.ConColl
 			thresh = 1e-5; % threshold for not fully pushing out the contact point
 			%dist = (1 - thresh)*this.d;
 			%fprintf('%d ',dist < 0);
+            this.update();
             dist = (1 - thresh) * this.d;
 
 			this.C(1) = dist;
@@ -50,7 +46,6 @@ classdef ConCollGroundRigidVal < apbd.ConColl
 			% Save Jacobi updates
 			this.body.dxJacobi(1:4) = this.body.dxJacobi(1:4) + dq;
 			this.body.dxJacobi(5:7) = this.body.dxJacobi(5:7) + dp;
-
             %{
 			if dist < 0
 				this.C(1) = dist;
@@ -110,10 +105,8 @@ classdef ConCollGroundRigidVal < apbd.ConColl
 			dpw = dlambda*nw;
 			dp1 = dpw/m1;
 			% Quaternion update
-            q1 = this.body.x1(1:4);
 			dpl1 = se3.qRotInv(q1,dpw);
 			qtmp1 = [se3.qRot(q1,I1.\se3.cross(rl1,dpl1)); 0];
-            %qtmp1 = [I1.\se3.cross(rl1,dpl1); 0];
 			dq1 = 0.5*se3.qMul(qtmp1,q1);
 		end
 

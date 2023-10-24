@@ -6,6 +6,7 @@ classdef ConColl < apbd.ConBase
 		d  % penetration depth (negative if collision)
 		
 		dlambdaNor % Lagrange multiplier update for normal force
+        lambdaSF% Lagrange multiplier for static friction force
 
 		s % scale for display
 	end
@@ -17,6 +18,7 @@ classdef ConColl < apbd.ConBase
 			this.nw = zeros(3,1);
 			this.d = 0;
 			this.dlambdaNor = 0;
+            this.lambdaSF = zeros(3,1);
 			this.s = 1;
 		end
 

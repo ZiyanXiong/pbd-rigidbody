@@ -37,26 +37,30 @@ classdef ConCollRigidRigid < apbd.ConColl
 			% the new world positions and the new distance.
 			xw1 = this.body1.transformPoint(this.x1);
 			xw2 = this.body2.transformPoint(this.x2);
+
+            q = this.body1.x0(1:4);
+            p = this.body1.x0(5:7);
+			xw1i = se3.qRot(q,this.x1) + p;
+
+            q = this.body2.x0(1:4);
+            p = this.body2.x0(5:7);
+			xw2i = se3.qRot(q,this.x2) + p;
+
 			% The normal stored in this object points from body1 to body2,
 			% and a collision occurs if the distance is negative.
-			dx = xw2 - xw1;
-			this.d = this.nw'*dx;
+			%dval = (xw2 - xw2i) + (xw1 - xw1i);
+            dval = (xw2 - xw1) - (xw2i - xw1i);
+			this.d = this.nw'*dval;
 		end
 
 		%%
 		function solveNorPos(this)
 			thresh = 1e-5; % threshold for not fully pushing out the contact point
 			
-            xw1 = this.body1.transformPoint(this.x1);
-			xw2 = this.body2.transformPoint(this.x2);
-			% The normal stored in this object points from body1 to body2,
-			% and a collision occurs if the distance is negative.
-			dx = xw2 - xw1;
-			dist = (1 - thresh)*norm(dx);
-            nw = -normalize(dx,"norm",1);
-
+            dist = (1 - thresh) * this.d;
+            nw = -this.nw;
 		    this.C(1) = dist;
-		    [this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist,nw);
+		    [this.dlambdaNor,dq1,dp1,dq2,dp2] = this.solvePosDir2(dist, nw);
 		    this.lambda(1) = this.lambda(1) + this.dlambdaNor;
 		    % Save Jacobi updates
 		    this.body1.dxJacobi(1:4) = this.body1.dxJacobi(1:4) + dq1;
@@ -92,7 +96,7 @@ classdef ConCollRigidRigid < apbd.ConColl
 			mu1 = this.body1.mu;
 			mu2 = this.body2.mu;
 			mu = 0.5*(mu1 + mu2);
-			if mu > 0 && this.dlambdaNor > 0
+			if mu > 0 
 				[tx,ty] = apbd.ConColl.generateTangents(this.nw);
 				v1w = this.body1.computePointVel(this.x1,k,ks,hs);
 				v2w = this.body2.computePointVel(this.x2,k,ks,hs);
@@ -128,8 +132,8 @@ classdef ConCollRigidRigid < apbd.ConColl
 			m2 = this.body2.Mp;
 			I1 = this.body1.Mr;
 			I2 = this.body2.Mr;
-			q1 = this.body1.x(1:4);
-			q2 = this.body2.x(1:4);
+			q1 = this.body1.x1(1:4);
+			q2 = this.body2.x1(1:4);
 			nl1 = se3.qRotInv(q1,nw);
 			nl2 = se3.qRotInv(q2,nw);
 			rl1 = this.x1;
@@ -145,11 +149,15 @@ classdef ConCollRigidRigid < apbd.ConColl
 			dpw = dlambda*nw;
 			dp1 =  dpw/m1;
 			dp2 = -dpw/m2;
+
 			% Quaternion update
 			dpl1 = se3.qRotInv(q1,dpw);
 			dpl2 = se3.qRotInv(q2,dpw);
 			qtmp1 = [se3.qRot(q1,I1.\se3.cross(rl1,dpl1)); 0];
 			qtmp2 = [se3.qRot(q2,I2.\se3.cross(rl2,dpl2)); 0];
+
+            %qtmp1 = [I1.\se3.cross(rl1,dpl1); 0];
+            %qtmp2 = [I2.\se3.cross(rl2,dpl2); 0];
 			dq1 =  0.5*se3.qMul(qtmp1,q1);
 			dq2 = -0.5*se3.qMul(qtmp2,q2);
 		end

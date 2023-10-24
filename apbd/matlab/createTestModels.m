@@ -303,7 +303,7 @@ switch(modelID)
 
 		model.view = [0 0];
 
-		n = 2;
+		n = 4;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -322,7 +322,7 @@ switch(modelID)
 		model.tEnd = 10.5;
 		model.h = 1e-2;
 		model.substeps = 1;
-		model.iters = 10;
+		model.iters = 20;
 		density = 1.0;
 		l = 1;
 		w = 1;
@@ -337,7 +337,7 @@ switch(modelID)
 		model.axis = 5*[-1 1 -0 1 -1 1];
 		model.view = 2;
 		model.drawHz = 10000;
-		n = 1;
+		n = 9;
 		for i = 1 : n
 		    model.bodies{end+1} = apbd.BodyRigid2d(apbd.ShapeCuboid(sides),density);
 		    model.bodies{end}.collide = true;
@@ -346,15 +346,50 @@ switch(modelID)
                 %model.bodies{end}.color = model.bodies{end - 1}.color;
             end
 		    E = eye(4);
-			x = 0.05*i;
-			y = (i-0.5)*w*0.99;
+			x = 3 * cos(pi * (i-1) / (n-1));
+			y = 0.5 + 3 * sin(pi * (i-1) / (n-1));
 			z = 0;
 			E(1:3,4) = [x y z]';
+            E(1:3,1:3) =  se3.aaToMat([0 0 1], pi * (i-1) / (n-1));
             %E(1:3,4) = [0 -0.5 0]';
 		    model.bodies{end}.setInitTransform(E);
-		    model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+	        model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+
         end
 	case 9
+		model.name = '2D Rigid Body Ground Friction';
+		model.plotH = false;
+		model.tEnd = 10.5;
+		model.h = 1e-2;
+		model.substeps = 1;
+		model.iters = 20;
+		density = 1.0;
+		l = 1;
+		w = 1;
+		sides = [l w w];
+		model.grav = [0 -980 0]';
+		model.ground.E = eye(4);
+
+        angle = -20*pi/180;
+		R = se3.aaToMat([0 0 1], angle) * se3.aaToMat([1 0 0], -pi/2);
+		model.ground.E(1:3,1:3) = R;
+
+		model.ground.size = 10;
+		model.axis = 5*[-1 1 -0 1 -1 1];
+		model.view = 2;
+		model.drawHz = 10000;
+		n = 1;
+		for i = 1 : n
+		    model.bodies{end+1} = apbd.BodyRigid2d(apbd.ShapeCuboid(sides),density);
+		    model.bodies{end}.collide = true;
+		    model.bodies{end}.mu = abs(1.0*(sin(angle)/cos(angle)));
+		    E = eye(4);
+            E(1:3,1:3) = se3.aaToMat([0 0 1], angle);
+            E(1:3,4) = se3.aaToMat([0 0 1], angle)*[0 w/2 0]';
+		    model.bodies{end}.setInitTransform(E);
+	        model.bodies{end}.setInitVelocity([0 0 0 0.01 0 0]');
+        end
+	case 10
 		model.name = 'Affine Body';
 		model.plotH = true;
 		model.tEnd = 1;
@@ -381,7 +416,7 @@ switch(modelID)
 		model.bodies{end}.setInitTransform(E);
 		model.bodies{end}.setInitVelocity([R'*[3 -4 5]'; R'*[0 0 5]']);
 		%model.bodies{end}.setInitVelocity([2 2 2 0 0 0]');
-	case 10
+	case 11
 		model.name = 'Affine Ground Collision';
 		model.plotH = false;
 		model.tEnd = 1.0;
@@ -419,7 +454,7 @@ switch(modelID)
 		model.bodies{end}.setInitTransform(E);
 		%model.bodies{end}.setInitVelocity([0 0 0 0 0 10]');
 
-        case 11
+        case 12
 		model.name = 'Affine Body Ground';
 		model.plotH = false;
 		model.tEnd = 10.5;
