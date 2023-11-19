@@ -14,6 +14,7 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 			this = this@apbd.ConColl();
 			this.body1 = body1;
 			this.body2 = body2;
+            this.bodies = {body1;body2};
 			this.x1 = zeros(3,1);
 			this.x2 = zeros(3,1);
 		end
@@ -29,8 +30,13 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 			this.nw = cdata.nw;
 			this.x1 = cdata.x1;
 			this.x2 = cdata.x2;
-		end
+        end
 
+        %%
+        function applyJacobi(this)
+            this.body1.applyJacobi();
+            this.body2.applyJacobi();
+        end
 		%%
 		function update(this)
 			% Assume the local positions and the normal are fixed. Compute
@@ -68,14 +74,20 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 			dpl2 = se3.qRotInv(q2,dpw);
 			qtmp1 = [se3.qRot(q1,I1.\se3.cross(this.x1,dpl1)); 0];
 			qtmp2 = [se3.qRot(q2,I2.\se3.cross(this.x2,dpl2)); 0];
+            %dq1 = se3.qMul(sin(0.5*qtmp1),q1);
+            %dq2 = se3.qMul(sin(-0.5*qtmp2),q2);
 			dq1 =  0.5*se3.qMul(qtmp1,q1);
 			dq2 = -0.5*se3.qMul(qtmp2,q2);
 		end
 
 		%%
-		function solveNorPos(this)
+		function solveNorPos(this, hs)
 			thresh = 0; % threshold for not fully pushing out the contact point
-			            
+			v1w = this.body1.computePointVel(this.x1,hs);
+			v2w = this.body2.computePointVel(this.x2,hs);
+			v = v2w - v1w;
+			this.d = hs*(v'*this.nw);
+
             dist = (1 - thresh)* this.d;
             nw = -this.nw;
 			this.dlambdaNor = this.solvePosDir2(dist,nw);
@@ -88,8 +100,13 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 			this.lambda(1) = this.lambda(1) + this.dlambdaNor;
             [dq1,dp1,dq2,dp2] = this.computeDx(this.dlambdaNor, nw);
 			% Save Jacobi updates
-		    this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
-		    this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
+            if this.shockProp
+		        this.body1.dxJacobiShock(1:2) = this.body1.dxJacobiShock(1:2) + dq1(3:4);
+		        this.body1.dxJacobiShock(3:4) = this.body1.dxJacobiShock(3:4) + dp1(1:2);
+            else
+		        this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
+		        this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
+            end
 		    this.body2.dxJacobi(1:2) = this.body2.dxJacobi(1:2) + dq2(3:4);
 		    this.body2.dxJacobi(3:4) = this.body2.dxJacobi(3:4) + dp2(1:2);
             
@@ -115,18 +132,27 @@ classdef ConCollRigidRigid2d < apbd.ConColl
 		end
 
 		%%
-		function solveTanVel(this,k,ks,hs)
+		function solveTanVel(this, hs)
 			%this.update();
 			mu1 = this.body1.mu;
 			mu2 = this.body2.mu;
 			mu = 0.5*(mu1 + mu2);
 			if mu > 0 
 				[ty,tx] = apbd.ConColl.generateTangents(this.nw);
-				v1w = this.body1.computePointVel(this.x1,k,ks,hs);
-				v2w = this.body2.computePointVel(this.x2,k,ks,hs);
+				v1w = this.body1.computePointVel(this.x1,hs);
+				v2w = this.body2.computePointVel(this.x2,hs);
 				v = v1w - v2w;
 				vx = hs*(v'*tx);
 				vy = hs*(v'*ty);
+             
+                %{
+                v1wh = this.body1.computePointVelDis(this.x1);
+                v2wh = this.body2.computePointVelDis(this.x2);
+                vh = v1wh - v2wh;
+				vx = vh'*tx;
+				vy = vh'*ty;
+                %}
+
 				this.C(2) = vx;
 				this.C(3) = vy;
 				dlambdaTx = this.solvePosDir2(vx,tx);
@@ -149,8 +175,14 @@ classdef ConCollRigidRigid2d < apbd.ConColl
                 dq2 = dqTx2 + dqTy2;
                 dp1 = dpTx1 + dpTy1;
                 dp2 = dpTx2 + dpTy2;
-			    this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
-			    this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
+
+                if this.shockProp
+		            this.body1.dxJacobiShock(1:2) = this.body1.dxJacobiShock(1:2) + dq1(3:4);
+		            this.body1.dxJacobiShock(3:4) = this.body1.dxJacobiShock(3:4) + dp1(1:2);
+                else
+		            this.body1.dxJacobi(1:2) = this.body1.dxJacobi(1:2) + dq1(3:4);
+		            this.body1.dxJacobi(3:4) = this.body1.dxJacobi(3:4) + dp1(1:2);
+                end
 			    this.body2.dxJacobi(1:2) = this.body2.dxJacobi(1:2) + dq2(3:4);
 			    this.body2.dxJacobi(3:4) = this.body2.dxJacobi(3:4) + dp2(1:2);
 			end

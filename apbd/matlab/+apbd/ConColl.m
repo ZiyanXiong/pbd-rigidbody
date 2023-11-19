@@ -7,7 +7,9 @@ classdef ConColl < apbd.ConBase
 		
 		dlambdaNor % Lagrange multiplier update for normal force
         lambdaSF% Lagrange multiplier for static friction force
-
+        
+        shockProp % Enable shock propagation or not
+        bodies % Property matching Joint constraints
 		s % scale for display
 	end
 
@@ -20,11 +22,16 @@ classdef ConColl < apbd.ConBase
 			this.dlambdaNor = 0;
             this.lambdaSF = zeros(3,1);
 			this.s = 1;
+            this.shockProp = false;
 		end
 
 		%%
 		function solve(this,h) %#ok<INUSD>
 			% For this class, call solveNormal() and solveTangent() instead
+            this.solveNorPos(h);
+            this.applyJacobi();
+            %this.solveTanVel(h);
+            %this.applyJacobi();
 		end
 	end
 

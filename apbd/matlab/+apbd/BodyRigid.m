@@ -104,15 +104,16 @@ classdef BodyRigid < apbd.Body
 		end
 
 		%%
-		function v = computePointVel(this,xl,k,ks,hs)
-			xdot = this.computeVelocity(k,ks,hs);
+		function v = computePointVel(this,xl,hs)
+			%xdot = this.computeVelocity(k,ks,hs);
+            xdot = (this.x - this.x0)/hs;
 			qdot = xdot(1:4);
 			pdot = xdot(5:7); % in world coords
 			q = this.x(1:4);
 			w = se3.qdotToW(q,qdot); % angular velocity in body coords
 			% v = R*cross(w,xl) + pdot
 			v = se3.qRot(q,se3.cross(w,xl)) + pdot;
-		end
+        end
 		
         %%
 		function stepBDF1(this,k,ks,hs,grav)
@@ -140,6 +141,8 @@ classdef BodyRigid < apbd.Body
 			q = q/norm(q);
 			this.x(1:4) = q;
 			this.x(5:7) = p;
+            this.x1_0 = this.x;
+            this.x1 = this.x1_0;
 		end
 
 		%%

@@ -6,11 +6,15 @@ classdef (Abstract) Body < handle
 		n        % DOF count
 		xInit    % Initial position
 		xdotInit % Initial velocity
-        x        % Projectd position
+        x        % Projected position
         x0       % Previous position
         x1       % Positions updated in solvers
         x1_0     % Position after BDF1 Update
 		dxJacobi % Jacobi updates
+        dxJacobiShock % Jacobi updates after shock propagation
+        shockParentConIndex % Constraints for shock propagation
+        conIndex % Constraints related to this body
+        layer    % How far from the ground
 		collide  % Collision on/off
 		mu       % Coefficient of friction
 
@@ -30,8 +34,12 @@ classdef (Abstract) Body < handle
             this.x1 = zeros(n,1);
             this.x1_0 = zeros(n,1);
 			this.dxJacobi = zeros(n,1);
+            this.dxJacobiShock = zeros(n,1);
 			this.collide = false;
 			this.mu = 0;
+            this.shockParentConIndex = {};
+            this.conIndex = [];
+            this.layer = 99;
 
 			this.index = apbd.Model.countB();
 		end
@@ -63,6 +71,13 @@ classdef (Abstract) Body < handle
                 E = this.computeTransform();
             end
             %}
+        end
+
+		%%
+		function applyJacobiShock(this)
+			this.x1 = this.x1 + this.dxJacobiShock;
+			this.dxJacobiShock = zeros(this.n,1);
+            this.regularize();
         end
 
         %%

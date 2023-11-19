@@ -52,11 +52,14 @@ classdef ConJointRev < apbd.ConJoint
 				this.ql2 = se3.matToQ(E2(1:3,1:3));
 				if this.ql2(4) < 0, this.ql2 = -this.ql2; end
 				this.pl2 = E2(1:3,4);
+
+                % Set ground constraint to true
+                %this.ground = true;
 			end
 		end
 		
 		%%
-		function solve(this)
+		function solve(this, ~)
 			if length(this.bodies) == 1
 				body1 = this.bodies{1};
 				q1 = body1.x(1:4);

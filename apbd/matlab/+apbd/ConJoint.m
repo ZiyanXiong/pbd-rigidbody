@@ -8,6 +8,7 @@ classdef (Abstract) ConJoint < apbd.ConBase
 
 	properties
 		bodies
+        shockProp % Enable shock propagation or not
 	end
 
 	methods
@@ -15,6 +16,7 @@ classdef (Abstract) ConJoint < apbd.ConBase
 		function this = ConJoint(bodies,m)
 			this = this@apbd.ConBase(m);
 			this.bodies = bodies;
+            this.shockProp = false;
 		end
 
 		%%
@@ -39,12 +41,14 @@ classdef (Abstract) ConJoint < apbd.ConBase
 				dlambda = numerator/denominator;
 				this.lambda(i) = this.lambda(i) + dlambda;
 				% Quaternion update
+                q1 = body1.x1_0(1:4);
 				dpw = dlambda*nw;
 				dpl1 = se3.qRotInv(q1,dpw);
 				qtmp1 = [se3.qRot(q1,I1.\dpl1); 0];
 				dq1 = 0.5*se3.qMul(qtmp1,q1);
 				if apply
-					body1.x(1:4) = q1 + dq1;
+					body1.x1(1:4) = body1.x1(1:4) + dq1;
+                    body1.regularize();
 				end
 			end
 		end
@@ -78,6 +82,8 @@ classdef (Abstract) ConJoint < apbd.ConBase
 				dlambda = numerator/denominator;
 				this.lambda(i) = this.lambda(i) + dlambda;
 				% Quaternion update
+                q1 = body1.x1_0(1:4);
+                q2 = body2.x1_0(1:4);
 				dpw = dlambda*nw;
 				dpl1 = se3.qRotInv(q1,dpw);
 				dpl2 = se3.qRotInv(q2,dpw);
@@ -86,8 +92,15 @@ classdef (Abstract) ConJoint < apbd.ConBase
 				dq1 =  0.5*se3.qMul(qtmp1,q1);
 				dq2 = -0.5*se3.qMul(qtmp2,q2);
 				if apply
-					body1.x(1:4) = q1 + dq1;
-					body2.x(1:4) = q2 + dq2;
+                    if this.shockProp
+		                body1.dxJacobiShock(1:4) = body1.dxJacobiShock(1:4) + dq1;
+                    else
+		                body1.x1(1:4) = body1.x1(1:4) + dq1;
+                    end
+					body1.x1(1:4) = body1.x1(1:4) + dq1;
+					body2.x1(1:4) = body2.x1(1:4) + dq2;
+                    body1.regularize();
+                    body2.regularize();
 				end
 			end
 		end
@@ -118,13 +131,15 @@ classdef (Abstract) ConJoint < apbd.ConBase
 				% Position update
 				dpw = dlambda*nw;
 				dp1 = dpw/m1;
-				body1.x(5:7) = body1.x(5:7) + dp1;
 				% Quaternion update
+                q1 = body1.x1_0(1:4);
 				dpl1 = se3.qRotInv(q1,dpw);
 				qtmp1 = [se3.qRot(q1,I1.\se3.cross(rl1,dpl1)); 0];
 				dq1 = 0.5*se3.qMul(qtmp1,q1);
 				if apply
-					body1.x(1:4) = q1 + dq1;
+					body1.x1(1:4) = body1.x1(1:4) + dq1;
+                    body1.x1(5:7) = body1.x1(5:7) + dp1;
+                    body1.regularize();
 				end
 			end
 		end
@@ -166,6 +181,8 @@ classdef (Abstract) ConJoint < apbd.ConBase
 				dp1 =  dpw/m1;
 				dp2 = -dpw/m2;
 				% Quaternion update
+                q1 = body1.x1_0(1:4);
+                q2 = body2.x1_0(1:4);
 				dpl1 = se3.qRotInv(q1,dpw);
 				dpl2 = se3.qRotInv(q2,dpw);
 				qtmp1 = [se3.qRot(q1,I1.\se3.cross(rl1,dpl1)); 0];
@@ -173,10 +190,17 @@ classdef (Abstract) ConJoint < apbd.ConBase
 				dq1 =  0.5*se3.qMul(qtmp1,q1);
 				dq2 = -0.5*se3.qMul(qtmp2,q2);
 				if apply
-					body1.x(5:7) = body1.x(5:7) + dp1;
-					body2.x(5:7) = body2.x(5:7) + dp2;
-					body1.x(1:4) = q1 + dq1;
-					body2.x(1:4) = q2 + dq2;
+                    if this.shockProp
+		                body1.dxJacobiShock(1:4) = body1.dxJacobiShock(1:4) + dq1;
+                        body1.dxJacobiShock(5:7) = body1.dxJacobiShock(5:7) + dp1;
+                    else
+					    body1.x1(1:4) = body1.x1(1:4) + dq1;
+					    body1.x1(5:7) = body1.x1(5:7) + dp1;
+                    end
+					body2.x1(1:4) = body2.x1(1:4) + dq2;
+				    body2.x1(5:7) = body2.x1(5:7) + dp2;
+                    body1.regularize();
+                    body2.regularize();
 				end
 			end
 		end

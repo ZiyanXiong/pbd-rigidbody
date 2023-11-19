@@ -24,7 +24,11 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 		function init(this) %#ok<MANU>
 			% Do nothing
 		end
-
+        
+        %%
+        function applyJacobi(this)
+            this.body.applyJacobi();
+        end
 		%%
 		function update(this)
             %{
@@ -54,12 +58,12 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 			dpl1 = se3.qRotInv(q1,dpw);
 			qtmp1 = [se3.qRot(q1, I1.\se3.cross(this.xl,dpl1)); 0];
             %qtmp1 = [I1.\se3.cross(rl1,dpl1); 0];
-			%dq1 = se3.qMul(sin(0.5*qtmp1),q1);
+			%dq = se3.qMul(sin(0.5*qtmp1),q1);
             dq = 0.5 * se3.qMul(qtmp1,q1);
 		end
 
 		%%
-		function solveNorPos(this)
+		function solveNorPos(this, hs)
 			thresh = 0; % threshold for not fully pushing out the contact point
 
             %{
@@ -73,7 +77,9 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 			this.body.dxJacobi(3:4) = this.body.dxJacobi(3:4) + dp(1:2);
             %}
             
-            
+			v = this.body.computePointVel(this.xl,hs);
+		    this.d = hs*(v'*this.nw);
+
 			dist = (1 - thresh)*this.d;
             this.dlambdaNor = this.solvePosDir1(dist,this.nw);
 			this.C(1) = dist;
@@ -104,13 +110,13 @@ classdef ConCollGroundRigid2d < apbd.ConColl
 		end
 
 		%%
-		function solveTanVel(this,k,ks,hs)
+		function solveTanVel(this, hs)
 			mu = this.body.mu;
 			if mu > 0 
 				%[tx,ty] = apbd.ConColl.generateTangents(this.nw);
 				tx = this.Eg(1:3,1);
 				%ty = this.Eg(1:3,2);
-				v = this.body.computePointVel(this.xl,k,ks,hs);
+				v = this.body.computePointVel(this.xl,hs);
 			    vx = hs*(v'*tx);
 
     	        %xw1 = this.body.transformPoint(this.xl);

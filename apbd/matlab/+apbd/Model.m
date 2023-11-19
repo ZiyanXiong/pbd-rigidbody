@@ -5,8 +5,11 @@ classdef Model < handle
 		bodies % list of bodies
 		constraints %list of constraints
 		collider % collision handler
+        constraintList % lise of constraints and contacts 
 		grav % gravity
 		ground % ground transform, with Z up
+        bodyLayers % Bodyies at each layer
+        constraintLayers% constraints indices at each layer
 		
 		t % current time
 		h % time step
@@ -45,6 +48,7 @@ classdef Model < handle
 			this.collider = apbd.Collider(this);
 			this.grav = [0 0 -980]';
 			this.ground.E = zeros(4);
+            this.constraintLayers = {};
 
 			this.t = 0;
 			this.h = 1/30;
@@ -99,10 +103,14 @@ classdef Model < handle
 		function simulate(this)
 			while this.k < this.steps
 				this.ks = 0;
+                this.clearBodyShockPropInfo();
+                this.collider.run();
+                this.constructConstraintGraph();
 				while this.ks < this.substeps
-                    this.collider.run();
-					this.stepBDF1();
-					%this.solveCon();
+                    this.stepBDF1();
+				    %this.solveConJacobi();
+                    this.solveConSP();
+                    %this.solveConGSSP();
                     this.solveConGS();
 					this.t = this.t + this.hs;
 					this.ks = this.ks + 1;
@@ -146,7 +154,7 @@ classdef Model < handle
         function c = computeC(this, p1, p2)
             nw = [0 1 0]';
             rl1 = [-0.5 -0.5 0]';
-            rl2 = [0.5 -0.5 0]';
+            rl2 = [0.0 -0.5 0]';
 		    m1 = this.bodies{1}.Mp;
 		    I1 = this.bodies{1}.Mr;
 
@@ -196,7 +204,7 @@ classdef Model < handle
             %this.bodies{1}.x = this.bodies{1}.x +  [0.2 0 0 -0.02]';
             this.bodies{1}.x1 = this.bodies{1}.x;
             this.bodies{1}.x1_0 = this.bodies{1}.x1;
-            this.bodies{1}.x0 = this.bodies{1}.x + [0 0 0 1]';
+            this.bodies{1}.x0 = this.bodies{1}.x + [0 0 0 0.5]';
             
             this.collider.collisions{end+1} = apbd.ConCollGroundRigid2d(this.bodies{1},this.ground.E);
 		    this.collider.collisions{end}.d = 0;
@@ -205,7 +213,7 @@ classdef Model < handle
 
             this.collider.collisions{end+1} = apbd.ConCollGroundRigid2d(this.bodies{1},this.ground.E);
 		    this.collider.collisions{end}.d = 0;
-	        this.collider.collisions{end}.xl = [0.5 -0.5 0]';
+	        this.collider.collisions{end}.xl = [0.0 -0.5 0]';
 		    this.collider.collisions{end}.nw = [0 1 0]';
 
             % Plot the value of C
@@ -264,6 +272,9 @@ classdef Model < handle
                     end
                 end
 
+		        for i = 1 : length(this.bodies)
+                    %this.bodies{i}.applyJacobi();
+                end
             end
 
             this.bodies{1}.x = this.bodies{1}.x1_0;
@@ -288,10 +299,93 @@ classdef Model < handle
 			for i = 1 : length(this.bodies)
                 this.bodies{i}.regularize();
 			end
+        end
+
+		%%
+        function clearBodyShockPropInfo(this)
+			for i = 1 : length(this.bodies)
+                this.bodies{i}.shockParentConIndex = {};
+                this.bodies{i}.conIndex = [];
+                this.bodies{i}.layer = 99;
+            end
+            this.bodyLayers = {};
+            this.constraintLayers = {};
+        end
+
+		%%
+        function constructConstraintGraph(this)
+            this.constraintList = cat(2, this.constraints, this.collider.collisions);
+            bodylayer = [];
+            conlayer = [];
+			for i = 1 : length(this.constraintList)
+                if this.constraintList{i}.ground == true
+                    bodylayer(end+1) = this.constraintList{i}.bodies{1}.index;
+                    this.constraintList{i}.bodies{1}.layer = 1;
+                    this.constraintList{i}.bodies{1}.shockParentConIndex{end + 1} = i;
+                    this.constraintList{i}.bodies{1}.conIndex(end+1) = i;
+                    conlayer(end+1) = i;
+                end
+
+                if length(this.constraintList{i}.bodies) == 2
+                    this.constraintList{i}.bodies{1}.conIndex(end+1) = i;
+                    this.constraintList{i}.bodies{2}.conIndex(end+1) = i;
+                end
+            end
+            bodylayer = unique(bodylayer);
+            conlayer = unique(conlayer);
+            this.bodyLayers{end + 1} = bodylayer;
+            this.constraintLayers{end + 1} = conlayer;
+
+            for i = 1: length(this.bodies)
+                this.bodies{i}.conIndex = unique(this.bodies{i}.conIndex);
+            end
+            
+            layer = 2;
+            while true
+                bodylayer = [];
+                conlayer = [];
+                for i = 1 : length(this.bodyLayers{layer-1})
+                     bodyIndex = this.bodyLayers{layer-1}(i);
+                    for j = 1 : length(this.bodies{bodyIndex}.conIndex)
+                        conIndex = this.bodies{bodyIndex}.conIndex(j);
+                        if length(this.constraintList{conIndex}.bodies) == 1
+                            continue;
+                        end
+                        if this.constraintList{conIndex}.bodies{1}.layer == this.constraintList{conIndex}.bodies{2}.layer
+                            this.constraintLayers{layer-1}(end+1) = conIndex;
+                            continue;
+                        elseif this.constraintList{conIndex}.bodies{1}.layer > this.constraintList{conIndex}.bodies{2}.layer
+                            %temp = this.constraintList{conIndex}.bodies{1};
+                            %this.constraintList{conIndex}.bodies{1} = this.constraintList{conIndex}.bodies{2};
+                            %this.constraintList{conIndex}.bodies{2} = temp;
+                            if ismethod(this.constraintList{conIndex},'swapBody')
+                                this.constraintList{conIndex}.swapBody();
+                            end
+                        end
+                        if this.bodies{bodyIndex} == this.constraintList{conIndex}.bodies{2}
+                            continue;
+                        end
+                        body2 = this.constraintList{conIndex}.bodies{2};
+                        body2.shockParentConIndex{end + 1} = conIndex;
+                        body2.layer = layer;
+                        bodylayer(end+1) = body2.index;
+                        conlayer(end+1) = conIndex;
+                    end
+                end
+                if isempty(bodylayer)
+                    break;
+                end
+                bodylayer = unique(bodylayer);
+                conlayer = unique(conlayer);
+                this.bodyLayers{end + 1} = bodylayer;
+                this.constraintLayers{end + 1} = conlayer;
+                layer = layer + 1;
+            end
+
 		end
 
 		%%
-		function solveCon(this)
+		function solveConJacobi(this)
 			%this.draw();
 			%fprintf('substep %d\n',this.ks);
 			for i = 1 : length(this.constraints)
@@ -320,41 +414,29 @@ classdef Model < handle
 					collisions{j}.update();
                 end
 				for j = 1 : length(collisions)
-                    if isa(collisions{j}, 'apbd.ConCollGroundRigid2dVal')
 					    collisions{j}.solveNorPos();
-                    end
 				end
 				% Apply Jacobi updates to the bodies
 				%fprintf('    ');
 				for i = 1 : length(this.bodies)
 					this.bodies{i}.applyJacobi();
                 end
-                %this.draw()
+                this.draw()
 
 				% Update the collisions with the latest body states
 				for j = 1 : length(collisions)
 					collisions{j}.update();
                 end
-
-				for j = 1 : length(collisions)
-                    if isa(collisions{j}, 'apbd.ConCollRigidRigid2dVal')
-					    collisions{j}.solveNorPos();
-                    end
-				end
-				for i = 1 : length(this.bodies)
-					this.bodies{i}.applyJacobi();
-                    %this.draw();
-                end
                 
 			    % Solve all collision tangents at the velocity level
 			    for j = 1 : length(collisions)
-				    %collisions{j}.solveTanVel(this.k,this.ks,this.hs);
+				    collisions{j}.solveTanVel(this.k,this.ks,this.hs);
 				    %fprintf('%e\n',collisions{j}.C(1));
 			    end
 			    % Apply Jacobi updates
 			    %fprintf('    ');
 			    for i = 1 : length(this.bodies)
-				    %this.bodies{i}.applyJacobi();
+				    this.bodies{i}.applyJacobi();
 				    %fprintf('%e ',this.bodies{i}.x(end));
 			    end
 			    %fprintf('\n');
@@ -363,14 +445,86 @@ classdef Model < handle
 		end
 
 		%%
-		function solveConGS(this)
+        function solveConSP(this)
+			%this.draw();
+			%fprintf('substep %d\n',this.ks);
+			for i = 1 : length(this.constraints)
+				this.constraints{i}.clear();
+            end
+            
+			for i = 1 : length(this.bodies)
+                for j = 1 : length(this.bodies{i}.shockParentConIndex)
+				    conIndex = this.bodies{i}.shockParentConIndex{j};
+                    this.constraintList{conIndex}.shockProp = true;
+                end
+            end
+            
+            for i = 1 : length(this.constraintLayers)
+                for iter = 1:this.iters
+                    for j = 1 : length(this.constraintLayers{i})
+                        this.constraintList{this.constraintLayers{i}(j)}.solve(this.hs);
+                    end
+                end
+            end
+            
+            %{
+            for i = 1:length(this.bodyLayers)
+                for iter = 1:50
+                    for j = 1:length(this.bodyLayers{i})
+                        body = this.bodies{this.bodyLayers{i}(j)};
+                        for k = 1:length(body.shockParentConIndex)
+                            %conIndex = body.shockParentConIndex{k};
+                            %this.constraintList{conIndex}.shockProp = true;
+                        end
+                        for k = 1:length(body.conIndex)
+                            conIndex = body.conIndex(k);
+                            this.constraintList{conIndex}.solve(this.hs);
+                        end
+                        
+                    end
+                end
+            end 
+            %}
+
+            for i = length(this.constraintLayers) : -1 : 1
+                for j = 1:length(this.bodyLayers{i})
+                    this.bodies{this.bodyLayers{i}(j)}.applyJacobiShock();
+                end
+                for iter = 1:this.iters
+                    for j = 1 : length(this.constraintLayers{i})
+                        this.constraintList{this.constraintLayers{i}(j)}.solve(this.hs);
+                    end
+                end
+            end
+            
+            %{
+            %this.draw();
+            for i = length(this.bodyLayers):-1:1
+                for j = 1:length(this.bodyLayers{i})
+                    this.bodies{this.bodyLayers{i}(j)}.applyJacobiShock();
+                end
+                %this.draw();
+                for iter = 1:50
+                    for j = 1:length(this.bodyLayers{i})
+                        body = this.bodies{this.bodyLayers{i}(j)};
+                        for k = 1:length(body.shockParentConIndex)
+                            collisionIndex = body.shockParentConIndex{k};
+                            this.constraintList{collisionIndex}.solve(this.hs);
+                        end
+                    end
+                end
+            end
+            %}
+        %this.draw();
+		end
+		%%
+		function solveConGSSP(this)
 			%this.draw();
 			%fprintf('substep %d\n',this.ks);
 			for i = 1 : length(this.constraints)
 				this.constraints{i}.clear();
             end
 		    %this.collider.run();
-            collisions = this.collider.collisions;
 			for iter = 0 : this.iters-1 % index 0
 				%fprintf('  iter %d\n',iter);
 				% Clear the Jacobi updates
@@ -381,20 +535,126 @@ classdef Model < handle
 				for j = 1 : length(this.constraints)
 					this.constraints{j}.solve();
                 end
+            end
 
+            collisions = this.collider.collisions;
+            for i = 1 : length(collisions)
+                collisions{i}.shockProp = true;
+            end
+		    for i = 1 : length(this.bodies)
                 %this.draw();
-				% Update the collisions with the latest body states
-				for j = 1 : length(collisions)
-					collisions{j}.update();
-                    collisions{j}.solveNorPos();
-    		        for i = 1 : length(this.bodies)
-                        this.bodies{i}.applyJacobi();
-                    end
+                for iter = 1: 10
+                    for j = 1 : length(this.bodies{i}.shockParentConIndex)
+                        collisionIndex = this.bodies{i}.shockParentConIndex{j};
+                        collisions{collisionIndex}.solve(this.hs);
+                    end                  
+                end
+                %this.draw();
+            end
+                
+            %this.draw();
+            
+            for i = 1 : length(collisions)
+                collisions{i}.shockProp = true;
+            end
+		    for i = length(this.bodies) : -1 : 1
+                this.bodies{i}.applyJacobiShock();
+                %this.draw();
+                for iter = 1: 10
+                    for j = 1 : length(this.bodies{i}.shockParentConIndex)
+                        collisionIndex = this.bodies{i}.shockParentConIndex{j};
+                        collisions{collisionIndex}.solve(this.hs);
+                    end  
                     %this.draw();
                 end
                 %this.draw();
+            end
+
+            %{
+			for i = 1 : length(this.bodies)
+                this.bodies{i}.x1_0 = this.bodies{i}.x;
+			end
+            %}
+		end
+
+		%%
+		function solveConGS(this)
+            %{
+            %this.draw();
+			%fprintf('substep %d\n',this.ks);
+			for i = 1 : length(this.constraints)
+				this.constraints{i}.clear();
+            end
+		    %this.collider.run();
+            collisions = this.collider.collisions;
+
+            for i = 1 : length(collisions)
+                collisions{i}.shockProp = false;
+            end
+            %this.draw();
+            for iter = 1 : this.iters
+   				for j = 1 : length(this.constraints)
+					this.constraints{j}.solve();
+                end  
+
+		        for i = 1 : length(this.bodies)
+                    for j = 1 : length(this.bodies{i}.shockParentConIndex)
+                        collisionIndex = this.bodies{i}.shockParentConIndex{j};
+                        collisions{collisionIndex}.solve(this.hs)
+                    end  
+                end
+            end
+            %}
+
+			for i = 1 : length(this.constraintList)
+                this.constraintList{i}.shockProp = false;
+            end
+            
+            for iter = 1 : this.iters
+	            for i = 1 : length(this.constraintList)
+                    this.constraintList{i}.solve(this.hs)  
+                end
+            end
+
+        end
+
+		%%
+		function solveConGSO(this)
+            %this.draw();
+			%fprintf('substep %d\n',this.ks);
+			for i = 1 : length(this.constraints)
+				this.constraints{i}.clear();
+            end
+		    %this.collider.run();
+            collisions = this.collider.collisions;
+			for i = 1 : length(this.bodies)
+				this.bodies{i}.clearJacobi();
+			end
+			for iter = 0 : this.iters-1 % index 0
+
+				% Gauss-Seidel solve for non-collision constraints
+				for j = 1 : length(this.constraints)
+					this.constraints{j}.solve();
+                end
                 
-			    for j = 1 : length(collisions)
+                max_index = 1;
+                max_d = 0;
+				for j = 1 : length(collisions)
+				    collisions{j}.update();
+                    if abs(collisions{j}.d) > max_d
+                        max_d = abs(collisions{j}.d);
+                        max_index = j;
+                    end
+                end
+                collisions{max_index}.solveNorPos();
+                for i = 1 : length(this.bodies)
+                        this.bodies{i}.applyJacobi();
+                end
+                %this.draw();
+
+                %this.draw();
+                %{
+			    for j = length(collisions) : -1 : 1
                     collisions{j}.update();
 				    collisions{j}.solveTanVel(this.k,this.ks,this.hs);
     			    for i = 1 : length(this.bodies)
@@ -405,9 +665,9 @@ classdef Model < handle
 				    %fprintf('%e\n',collisions{j}.C(1));
                 end
                 %this.draw()
+                %}
             end
 		end
-
 		%%
 		function computeEnergies(this)
 			T = 0;

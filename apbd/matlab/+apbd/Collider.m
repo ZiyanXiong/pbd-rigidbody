@@ -87,7 +87,7 @@ classdef Collider < handle
 				for k = 1 : length(cdata)
 					c = cdata(k);
 					if isa(body1,'apbd.BodyRigid') && isa(body2,'apbd.BodyRigid')
-							this.collisions{end+1} = apbd.ConCollRigidRigid(body1,body2);
+						this.collisions{end+1} = apbd.ConCollRigidRigid(body1,body2);
                     end
 					if isa(body1,'apbd.BodyRigid2d') && isa(body2,'apbd.BodyRigid2d')
 					    this.collisions{end+1} = apbd.ConCollRigidRigid2d(body1,body2);

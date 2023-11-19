@@ -8,7 +8,6 @@ classdef BodyRigid2d < apbd.Body
 		density  % Mass/volume
 		Mr       % Rotational inertia (3x1)
 		Mp       % Translational inertia (1x1)
-
 		% Drawing etc.
 		color    % Color for rendering
 		axisSize % 
@@ -96,7 +95,7 @@ classdef BodyRigid2d < apbd.Body
 		end
 
 		%%
-		function v = computePointVel(this,xl,k,ks,hs)
+		function v = computePointVel(this,xl,hs)
 			%xdot = this.computeVelocity(k,ks,hs);
             xdot = (this.x - this.x0)/hs;
 			[qdot,pdot] = apbd.BodyRigid2d.unprojVel(xdot);
@@ -104,6 +103,15 @@ classdef BodyRigid2d < apbd.Body
 			w = se3.qdotToW(q,qdot); % angular velocity in body coords
 			% v = R*cross(w,xl) + pdot
 			v = se3.qRot(q,se3.cross(w,xl)) + pdot;
+        end
+
+		%%
+		function vh = computePointVelDis(this,xl)
+			%xdot = this.computeVelocity(k,ks,hs);
+	        xw = this.transformPoint(xl);
+            [q, p] = apbd.BodyRigid2d.unproj(this.x0);
+            xw0 = se3.qRot(q,xl) + p;
+            vh = xw - xw0;
 		end
 		
         %%
