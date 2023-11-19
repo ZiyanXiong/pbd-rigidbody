@@ -52,27 +52,6 @@ classdef ConCollRigidRigid < apbd.ConColl
             this.x2 = this.x1;
             this.x1 = temp;
         end
-		%%
-		function update(this)
-			% Assume the local positions and the normal are fixed. Compute
-			% the new world positions and the new distance.
-			xw1 = this.body1.transformPoint(this.x1);
-			xw2 = this.body2.transformPoint(this.x2);
-
-            q = this.body1.x0(1:4);
-            p = this.body1.x0(5:7);
-			xw1i = se3.qRot(q,this.x1) + p;
-
-            q = this.body2.x0(1:4);
-            p = this.body2.x0(5:7);
-			xw2i = se3.qRot(q,this.x2) + p;
-
-			% The normal stored in this object points from body1 to body2,
-			% and a collision occurs if the distance is negative.
-			%dval = (xw2 - xw2i) + (xw1 - xw1i);
-            dval = (xw2 - xw1) - (xw2i - xw1i);
-			this.d = this.nw'*dval;
-		end
 
         %%
         function [dq1,dp1,dq2,dp2] = computeDx(this, dlambda, nw)
@@ -99,8 +78,6 @@ classdef ConCollRigidRigid < apbd.ConColl
 
 		%%
 		function solveNorPos(this, hs)
-			thresh = 0; % threshold for not fully pushing out the contact point
-
 			v1w = this.body1.computePointVel(this.x1, hs);
 			v2w = this.body2.computePointVel(this.x2, hs);
 			v = hs * (v1w - v2w);

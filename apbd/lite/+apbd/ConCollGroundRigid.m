@@ -32,19 +32,6 @@ classdef ConCollGroundRigid < apbd.ConColl
             this.body.applyJacobi();
         end
         
-		%%
-		function update(this)
-            
-			this.xw = this.body.transformPoint(this.xl);
-			xg = this.Eg\[this.xw;1];
-
-            q = this.body.x0(1:4);
-            p = this.body.x0(5:7);
-			xwi = se3.qRot(q,this.xl) + p;
-            xgi = this.Eg\[xwi;1];
-			this.d = xg(3) - xgi(3);
-        end
-
         %%
         function [dq,dp] = computeDx(this, dlambda, nw)
 			m1 = this.body.Mp;
