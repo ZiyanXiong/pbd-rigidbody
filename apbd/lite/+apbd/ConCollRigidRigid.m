@@ -80,7 +80,11 @@ classdef ConCollRigidRigid < apbd.ConColl
 		function solveNorPos(this, hs)
 			v1w = this.body1.computePointVel(this.x1, hs);
 			v2w = this.body2.computePointVel(this.x2, hs);
-			v = hs * (v1w - v2w);
+
+            % 0.1 controls how much penetration solved at each step, 1e-3
+            % is the penetration we hope to keep. These two parameters can
+            % be adjusted according to scene configuration
+			v = hs * (v1w - v2w) - 0.1 * (this.d + 1e-3) * this.nw;
             vNorm = norm(v);
             vNormalized = v ./ vNorm;
             [tx,ty] = apbd.ConColl.generateTangents(this.nw);

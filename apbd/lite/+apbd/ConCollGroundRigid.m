@@ -50,7 +50,7 @@ classdef ConCollGroundRigid < apbd.ConColl
 
 		%%
 		function solveNorPos(this, hs)
-            v = hs * this.body.computePointVel(this.xl, hs);
+            v = hs * this.body.computePointVel(this.xl, hs) + 0.1 * this.d * this.nw;
             vNorm = norm(v);
             vNormalized = v ./ vNorm;
 			tx = this.Eg(1:3,1);

@@ -1,3 +1,3 @@
-model = createTestModels(2);
+model = createTestModels(0);
 model.init();
 model.simulate();

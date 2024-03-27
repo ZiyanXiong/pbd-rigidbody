@@ -7,7 +7,7 @@ switch(modelID)
 		model.name = 'Rigid Collisions';
 		model.plotH = false;
 		model.tEnd = 1;
-		model.h = 5e-3;
+		model.h = 1e-2;
 		model.substeps = 1;
 		model.iters = 30;
 		density = 1.0;
@@ -15,7 +15,7 @@ switch(modelID)
 		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.9;
+		mu = 0.5;
 
 		model.ground.size = 10;
 		model.axis = 5*[-1 1 -1 1 0 1];
@@ -23,18 +23,18 @@ switch(modelID)
 
 		model.view = [0 0];
 
-		n = 9;
+		n = 2;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
 			E = eye(4);
-			x = 0.05*i;
+			x = 0.25*i;
 			y = 0;
-			z = (i-0.5)*w*0.99;
+			z = (i-0.5)*w*0.99+1;
 			E(1:3,4) = [x y z]';
 			model.bodies{end}.setInitTransform(E);
-            if i == 2
+            if i == 1
                 model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
