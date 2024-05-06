@@ -6,10 +6,7 @@ classdef ConColl < apbd.ConBase
 		d  % penetration depth (negative if collision)
 		
 		dlambdaNor % Lagrange multiplier update for normal force
-        lambdaSF% Lagrange multiplier for static friction force
-        
-        shockProp % Enable shock propagation or not
-        bodies % Property matching Joint constraints
+        dlambdaSP % Lagrange multiplier saved for shock porpagation
 		s % scale for display
 	end
 
@@ -19,17 +16,14 @@ classdef ConColl < apbd.ConBase
 			this = this@apbd.ConBase(3);
 			this.nw = zeros(3,1);
 			this.d = 0;
-			this.dlambdaNor = 0;
-            this.lambdaSF = zeros(3,1);
+			this.dlambdaNor = zeros(3,1);
+            this.dlambdaSP = zeros(3,1);
 			this.s = 1;
-            this.shockProp = false;
 		end
 
 		%%
-		function solve(this,h) 
+		function solve(this,h) %#ok<INUSD>
 			% For this class, call solveNormal() and solveTangent() instead
-            this.solveNorPos(h);
-            this.applyJacobi();
 		end
 	end
 
@@ -38,6 +32,9 @@ classdef ConColl < apbd.ConBase
 
 		%%
 		solveNorPos(this)
+
+		%%
+		solveTanVel(this,k,ks,hs)
 	end
 
 	%%
@@ -57,6 +54,6 @@ classdef ConColl < apbd.ConBase
 			% R = se3.aaToMat(nor,pi/4);
 			% tanx = R*tanx;
 			% tany = R*tany;
-		end
+        end
 	end
 end

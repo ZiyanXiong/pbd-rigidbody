@@ -8,6 +8,7 @@ classdef BodyRigid2d < apbd.Body
 		density  % Mass/volume
 		Mr       % Rotational inertia (3x1)
 		Mp       % Translational inertia (1x1)
+
 		% Drawing etc.
 		color    % Color for rendering
 		axisSize % 
@@ -52,8 +53,8 @@ classdef BodyRigid2d < apbd.Body
 			this.xdotInit(3:4) = pdot(1:2);
 			qdot = se3.wToQdot(q,phi(1:3));
 			this.xdotInit(1:2) = qdot(3:4);
-        end
-
+		end
+		
 		%%
 		function E = computeTransform(this)
 			E = eye(4);
@@ -95,23 +96,13 @@ classdef BodyRigid2d < apbd.Body
 		end
 
 		%%
-		function v = computePointVel(this,xl,hs)
-			%xdot = this.computeVelocity(k,ks,hs);
-            xdot = (this.x - this.x0)/hs;
+		function v = computePointVel(this,xl,k,ks,hs)
+			xdot = this.computeVelocity(k,ks,hs);
 			[qdot,pdot] = apbd.BodyRigid2d.unprojVel(xdot);
 			q = apbd.BodyRigid2d.unproj(this.x);
 			w = se3.qdotToW(q,qdot); % angular velocity in body coords
 			% v = R*cross(w,xl) + pdot
 			v = se3.qRot(q,se3.cross(w,xl)) + pdot;
-        end
-
-		%%
-		function vh = computePointVelDis(this,xl)
-			%xdot = this.computeVelocity(k,ks,hs);
-	        xw = this.transformPoint(xl);
-            [q, p] = apbd.BodyRigid2d.unproj(this.x0);
-            xw0 = se3.qRot(q,xl) + p;
-            vh = xw - xw0;
 		end
 		
         %%
@@ -139,8 +130,6 @@ classdef BodyRigid2d < apbd.Body
 			%fprintf('%f %f\n',q(3:4));
 			this.x(1:2) = q(3:4);
 			this.x(3:4) = p(1:2);
-            this.x1_0 = this.x;
-            this.x1 = this.x1_0;
 		end
 
 		%%
@@ -196,10 +185,9 @@ classdef BodyRigid2d < apbd.Body
 			keep = [];
 			for k = 1 : length(cdata)
 				c = cdata(k);
-				if c.x1(3) < 0
+				if c.xl(3) < 0
 					keep(end+1) = k; %#ok<AGROW>
-					cdata(k).x1(3) = 0;
-                    cdata(k).x2(3) = 0;
+					cdata(k).xl(3) = 0;
 					cdata(k).xw(3) = 0;
 				end
 			end

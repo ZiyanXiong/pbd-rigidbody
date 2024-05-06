@@ -36,14 +36,14 @@ classdef ShapeCuboid < apbd.Shape
 			cdata = [];
 			s = this.sides/2;
 			xl = ones(4,8); % local space
-			xl(1:3,1) = [-s(1) + 0.0, -s(2), -s(3)]';
-			xl(1:3,2) = [ s(1), -s(2), -s(3)]';
-			xl(1:3,3) = [ s(1),  s(2), -s(3)]';
-			xl(1:3,4) = [-s(1) + 0.0,  s(2), -s(3)]';
-			xl(1:3,5) = [-s(1) + 0.0, -s(2),  s(3)]';
-			xl(1:3,6) = [ s(1), -s(2),  s(3)]';
-			xl(1:3,7) = [ s(1),  s(2),  s(3)]';
-			xl(1:3,8) = [-s(1) + 0.0,  s(2),  s(3)]';
+			xl(1:3,1) = [-s(1),  s(2), -s(3)]';
+			xl(1:3,2) = [-s(1), -s(2), -s(3)]';
+			xl(1:3,3) = [ s(1), -s(2), -s(3)]';
+			xl(1:3,4) = [ s(1),  s(2), -s(3)]';
+			xl(1:3,5) = [-s(1),  s(2),  s(3)]';
+			xl(1:3,6) = [-s(1), -s(2),  s(3)]';
+			xl(1:3,7) = [ s(1), -s(2),  s(3)]';
+			xl(1:3,8) = [ s(1),  s(2),  s(3)]';
 			% Debug
 			%xl(1,[1,4,5,8]) = -s(1)*0.5;
 			%xl(1,[2,3,6,7]) = s(1)*0.5;
@@ -53,12 +53,12 @@ classdef ShapeCuboid < apbd.Shape
 			for i = 1 : 8
 				% This only supports vertex collisions
 				d = xg(3,i);
-				if d < 0
+				if d < 0.2
 					xgproj = xg(:,i);
 					xgproj(3) = 0; % project onto the floor plane
 					cdata(end+1).d = d; %#ok<AGROW>
-					cdata(end).xl = xl(1:3,i);
-					cdata(end).xw = Eg(1:3,:)*xgproj; % transform to world space
+					cdata(end).x1 = xl(1:3,i);
+					cdata(end).x2 = Eg(1:3,:)*xgproj; % transform to world space
 					cdata(end).nw = Eg(1:3,3); % normal
 					cdata(end).vw = [0 0 0]'; % unused for now, assming the ground doesn't move
 				end
@@ -73,7 +73,7 @@ classdef ShapeCuboid < apbd.Shape
 				d = norm(p1 - p2);
 				r1 = norm(this.sides/2); % dist to a corner
 				r2 = norm(that.sides/2); % dist to a corner
-				flag = d < 1.5*(r1 + r2);
+				flag = d <= 1.5*(r1 + r2);
 			else
 				error('Unsupported shape');
 			end

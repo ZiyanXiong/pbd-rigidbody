@@ -273,6 +273,16 @@ classdef se3
 		end
 		
 		%%
+		function dq = deltaThetaToDq(wdt)
+            % https://fgiesen.wordpress.com/2012/08/24/quaternion-differentiation/
+            theta = norm(wdt);
+            if(theta > 0)
+                wdt = wdt / theta;
+            end
+            dq=[wdt*sin(theta/2);cos(theta/2)];
+        end
+
+		%%
 		function q = matToQ(R)
 			% http://www.euclideanspace.com/maths/geometry/rotations/conversions/matrixToQuaternion/
 			
@@ -365,11 +375,15 @@ classdef se3
 			% 	 q(2) -q(1)  q(4) -q(3)
 			% 	];
 			% w = 2*Q*qdot;
-			w = 2*[
-				 q(4)*qdot(1) + q(3)*qdot(2) - q(2)*qdot(3) - q(1)*qdot(4)
-				-q(3)*qdot(1) + q(4)*qdot(2) + q(1)*qdot(3) - q(2)*qdot(4)
-				 q(2)*qdot(1) - q(1)*qdot(2) + q(4)*qdot(3) - q(3)*qdot(4)
-				];
+			% w = 2*[
+			% 	 q(4)*qdot(1) + q(3)*qdot(2) - q(2)*qdot(3) - q(1)*qdot(4)
+			% 	-q(3)*qdot(1) + q(4)*qdot(2) + q(1)*qdot(3) - q(2)*qdot(4)
+			% 	 q(2)*qdot(1) - q(1)*qdot(2) + q(4)*qdot(3) - q(3)*qdot(4)
+			% 	];
+
+            % w = 2*qdot*inv(q);
+            w = 2*se3.qMulInv(qdot, q);
+            w = w(1:3);
 		end
 
 		%%

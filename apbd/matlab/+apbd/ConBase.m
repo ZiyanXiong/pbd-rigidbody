@@ -5,7 +5,6 @@ classdef (Abstract) ConBase < handle
 		m       % Number of constraint rows
         C       % Constraint value
         lambda  % Lagrange multiplier
-        ground  % If this constraint contains ground
     end
 
     %%
@@ -15,7 +14,6 @@ classdef (Abstract) ConBase < handle
 			this.m = m;
 			this.C = zeros(m,1);
 			this.lambda = zeros(m,1);
-            this.ground = false;
 		end
 
 		%%

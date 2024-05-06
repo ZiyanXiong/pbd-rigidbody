@@ -1,4 +1,4 @@
-model = createTestModels(15);
+model = createTestModels(7);
 model.init();
 model.simulate();
 %model.applyimplulse(-10);

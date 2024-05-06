@@ -255,10 +255,11 @@ switch(modelID)
 	case 6
 		model.name = 'Ground Collision';
 		model.plotH = false;
-		model.tEnd = 1.0;
+		model.tEnd = 5.0;
 		model.h = 1e-2;
-		model.substeps = 1;
-		model.iters = 20;
+		model.substeps = 100;
+		model.iters = 1;
+        %model.itersSP = 20;
 		density = 1.0;
 		l = 1;
 		w = 1;
@@ -273,51 +274,68 @@ switch(modelID)
 		model.ground.size = 10;
 		model.axis = 5*[-1 1 -1 1 0 1];
 		model.drawHz = 1000;
-
-		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-		model.bodies{end}.collide = true;
-		model.bodies{end}.mu = 1.0*(sin(angle)/cos(angle));
-		E = eye(4);
-		E(1:3,1:3) = R;
-		E(1:3,4) = R*[0 0 w/2]';
-		%E(1:3,4) = [0 0 5]';
-		model.bodies{end}.setInitTransform(E);
-		model.bodies{end}.setInitVelocity([0 0 0 1 0 0]');
+        
+        n = 1;
+        for i = 1 : n
+		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+		    model.bodies{end}.collide = true;
+		    model.bodies{end}.mu = 0.01*(sin(angle)/cos(angle));
+		    E = eye(4);
+		    E(1:3,1:3) = R;
+			x = 0.00*i;
+			y = 0;
+			z = (i-0.5)*w;
+			E(1:3,4) = R* [x y z]';
+		    model.bodies{end}.setInitTransform(E);
+            if i == 2
+		        model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+            end
+        end
 	case 7
 		model.name = 'Rigid Collisions';
 		model.plotH = false;
-		model.tEnd = 1;
-		model.h = 5e-3;
-		model.substeps = 1;
-		model.iters = 30;
+		model.tEnd = 5;
+		model.h = 1/100;
+		model.substeps = 20;
+		model.iters = 1;
+        %model.itersSP = 30;
 		density = 1.0;
 		w = 1;
 		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.9;
+		mu = 0.5;
 
-		model.ground.size = 10;
-		model.axis = 5*[-1 1 -1 1 0 1];
-		model.drawHz = 10000;
+		model.ground.size = 20;
+		model.axis = 10*[-1 1 -1 1 0 1];
+		model.drawHz = 300;
 
 		model.view = [0 0];
 
-		n = 9;
+		n = 10;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
+    		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+            R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x = 0.05*i;
+			x = 0.04*i;
+            %x = (i-0.5)*w*0.9;
 			y = 0;
-			z = (i-0.5)*w*0.99;
-			E(1:3,4) = [x y z]';
+			z = (i-0.5 + i *0.0)*w;
+            %z = 0.5*w+1;
+            E(1:3,1:3) = R;
+			E(1:3,4) = R * [x y z]';
 			model.bodies{end}.setInitTransform(E);
             if i == 2
-                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+                model.bodies{end}.setInitVelocity([0 0 0 100 0 0]');
             end
         end
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,-0.5,0-0.5]');
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,0.5,0-0.5]');
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,0.5,0-0.5]');
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,-0.5,0-0.5]');
 
 	case 8
 		model.name = '2D Rigid Body';
@@ -513,18 +531,21 @@ switch(modelID)
         end
 
     	case 13
-		model.name = 'Rigid Collisions: Arch';
+		model.name = 'Rigid Collisions with fircition';
 		model.plotH = false;
 		model.tEnd = 1;
-		model.h = 1e-2;
+		model.h = 1e-3;
 		model.substeps = 1;
-		model.iters = 50;
+		model.iters = 20;
 		density = 1.0;
 		w = 1;
 		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.3;
+
+        angle = -20*pi/180;
+		R = se3.aaToMat([0 1 0], -angle);
+		model.ground.E(1:3,1:3) = R;
 
 		model.ground.size = 10;
 		model.axis = 5*[-1 1 -1 1 0 1];
@@ -532,27 +553,18 @@ switch(modelID)
 
 		model.view = [0 0];
 
-		n = 3;
+		n = 1;
 		for i = 1 : n
-			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-			model.bodies{end}.collide = true;
-			model.bodies{end}.mu = mu;
-			E = eye(4);
-			x = -1.7 + 0.4*i;
-			y = 0;
-			z = (i-0.5)*w*0.99;
-			E(1:3,4) = [x y z]';
-			model.bodies{end}.setInitTransform(E);
-
-			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-			model.bodies{end}.collide = true;
-			model.bodies{end}.mu = mu;
-			E = eye(4);
-			x = 1.7 - 0.4*i;
-			y = 0;
-			z = (i-0.5)*w*0.99;
-			E(1:3,4) = [x y z]';
-			model.bodies{end}.setInitTransform(E);
+		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+		    model.bodies{end}.collide = true;
+		    model.bodies{end}.mu = abs(1.0*(sin(angle)/cos(angle)));
+		    E = eye(4);
+            E(1:3,1:3) = R;
+            E(1:3,4) = R*[0 0 0.99*w*(i-0.5)]';
+		    model.bodies{end}.setInitTransform(E);
+            if i == 2
+	            model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+            end
         end
 
     	case 14
@@ -728,6 +740,70 @@ switch(modelID)
                 end
             end
         end
+
+    	case 17
+		model.name = 'Two Cuboid Rigid Collisions';
+		model.plotH = false;
+		model.tEnd = 5;
+		model.h = 1e-2;
+		model.substeps = 100;
+		model.iters = 1;
+        %model.itersSP = 3;
+		density = 1.0;
+		w = 1;
+		sides = [w w w];
+		model.grav = [0 0 -981]';
+		model.ground.E = eye(4);
+		mu = 0.0;
+
+		model.ground.size = 10;
+		model.axis = 5*[-1 1 -1 1 0 1];
+		model.drawHz = 10000;
+
+		model.view = [0 0];
+
+		n = 5;
+        halfAngle = (18/180) * pi;
+		for i = 1 : n
+			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4, halfAngle),density);
+            %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+            theta = (i*2-1)*halfAngle;
+            r = 0.8 / sin(halfAngle);
+    		R = se3.aaToMat([0 1 0], pi/2 + theta);
+			E = eye(4);
+			x = -r * cos(theta);
+			y = 0;
+			z = r*sin(theta);
+            E(1:3,1:3) = R;
+			E(1:3,4) = [x y z]';
+			model.bodies{end}.setInitTransform(E);
+            if i == 1
+                %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+            end
+        end
+        %{
+		for i = 1 : 3
+			%model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4, halfAngle),density);
+            model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+			E = eye(4);
+			x = 0.05*i;
+			y = 0;
+			z = (i-0.5)*w+6.3;
+			E(1:3,4) = [x y z]';
+			model.bodies{end}.setInitTransform(E);
+            if i == 1
+                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+            end
+        end
+        %}
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,-0.5,0-0.5]');
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,0.5,0-0.5]');
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,0.5,0-0.5]');
+        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,-0.5,0-0.5]');
 end
 
 end
