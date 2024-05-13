@@ -117,7 +117,7 @@ classdef ShapeCuboid < apbd.Shape
 
 		%%
 		function [hit,t] = raycast(this,x,n)
-			thresh = 1e-6;
+			thresh = 1e-9;
 			bmax = 0.5*this.sides';
 			bmin = -bmax;
 			x = (1 - thresh)*x; % make the point go slightly inside the box

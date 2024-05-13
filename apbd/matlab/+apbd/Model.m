@@ -34,6 +34,8 @@ classdef Model < handle
 		view % initial viewing angle
 		axis % initial axis
 		video %
+        solverType % 1: PhysX 2:PhysX+OneWayShockPropagation 3:PhysX+TwoWayShockPropagation
+        savedBodyStatesPath
 	end
 
 	methods
@@ -71,6 +73,7 @@ classdef Model < handle
 			this.view = 3;
 			this.axis = [];
 			this.video = [];
+            this.solverType = 1;
 		end
 
 		%%
@@ -92,10 +95,12 @@ classdef Model < handle
 			this.hs = this.h/this.substeps;
 			this.k = 0;
 			this.ks = 0;
-            this.biasCoefficient = 2 * sqrt(this.hs / this.h);
-			
+
 			this.computeEnergies();
-			this.draw();
+			%this.draw();
+            if ~isempty(this.savedBodyStatesPath)
+                this.saveBodyStates();
+            end
 		end
 
 		%%
@@ -108,7 +113,10 @@ classdef Model < handle
                 this.solveConTGS();
 				this.k = this.k + 1;
 				this.computeEnergies();
-				this.draw();
+				%this.draw();
+                if ~isempty(this.savedBodyStatesPath)
+                    this.saveBodyStates();
+                end
 			end
         end
 
@@ -125,34 +133,40 @@ classdef Model < handle
             this.collider.run();
             for i = 1 : length(this.collider.activeCollisions)
                 for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.initConstraints(this.hs, this.biasCoefficient);
+                    this.collider.collisions{j}.initConstraints(this.h, this.hs);
                 end
             end
             %this.draw();
-
             
-            % Shock Propagation
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    for k = 1:5
-                        this.collider.collisions{j}.solveCollisionNor(true);
-                        %this.collider.collisions{j}.solveCollisionTan(true);
+            if(this.solverType > 1)
+                % Shock Propagation
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        for k = 1:5
+                            this.collider.collisions{j}.solveCollisionNor(-Inf, true);
+                            %this.collider.collisions{j}.solveCollisionTan(true);
+                        end
                     end
                 end
-            end
-
-            for i = length(this.collider.activeCollisions) : -1 : 1
-                for j = this.collider.activeCollisions{i}
-                    for k = 1:15
-                        this.collider.collisions{j}.solveCollisionNor(true);
-                        %this.collider.collisions{j}.solveCollisionTan(true);
+                if(this.solverType > 2)
+                    for i = length(this.collider.activeCollisions) : -1 : 1
+                        for j = this.collider.activeCollisions{i}
+                            for k = 1:25
+                                this.collider.collisions{j}.solveCollisionNor(-Inf, true);
+                                %this.collider.collisions{j}.solveCollisionTan(true);
+                            end
+                        end
+                        for j = this.collider.activeCollisions{i}
+                            this.collider.collisions{j}.applyLambdaSP();
+                        end
                     end
                 end
-                for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.applyLambdaSP();
-                end
+
+                for i = 1 : length(this.bodies)
+                    this.bodies{i}.updateStates(this.hs);
+                end 
             end
-            
+
             while this.ks < this.substeps
 			    %this.draw();
 			    %fprintf('substep %d\n',this.ks);
@@ -173,10 +187,11 @@ classdef Model < handle
 				%fprintf('    ');
     			%this.collider.run();
 
+                
                 % Gauss-Seidal 
                 for i = 1 : length(this.collider.activeCollisions)
                     for j = this.collider.activeCollisions{i}
-                        this.collider.collisions{j}.solveCollisionNor(false);
+                        this.collider.collisions{j}.solveCollisionNor(-Inf, false);
                         this.collider.collisions{j}.solveCollisionTan(false);
                     end
                 end
@@ -188,18 +203,20 @@ classdef Model < handle
 				this.t = this.t + this.hs;
 				this.ks = this.ks + 1;
             end
-            
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.solveCollisionNor(false);
-                    this.collider.collisions{j}.solveCollisionTan(false);
+
+            for iter = 1: 1
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        this.collider.collisions{j}.solveCollisionNor(0, false);
+                        this.collider.collisions{j}.solveCollisionTan(false);
+                    end
                 end
             end
 
             for i = 1 : length(this.bodies)
                 this.bodies{i}.integrateStates();
             end
-
+            
 		end
 
 		%%
@@ -301,7 +318,27 @@ classdef Model < handle
 					this.video.writeVideo(getframe(gcf));
 				end
 			end
-		end
+        end
+
+        function saveBodyStates(this)
+            % Check if the file exists
+            if exist(this.savedBodyStatesPath, 'file') == 0
+                % If the file does not exist, create it
+                fid = fopen(this.savedBodyStatesPath, 'w');
+                fclose(fid);
+            end
+            
+            if (floor(this.t*this.drawHz) > floor((this.t-this.h)*this.drawHz))
+                % Append new lines to the file
+                fid = fopen(this.savedBodyStatesPath, 'a'); % 'a' mode for appending
+                % Iterate through each quaternion and position
+                for i = 1 : length(this.bodies)
+                    fprintf(fid, '%f %f %f %f %f %f %f ', this.bodies{i}.x);
+                end
+                fprintf(fid, '\n');
+                fclose(fid);
+            end
+        end
 
 		%%
 		function plotEnergy(this)

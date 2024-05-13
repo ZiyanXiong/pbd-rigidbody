@@ -49,7 +49,7 @@ classdef ConCollRigidRigid < apbd.ConColl
 		end
 
 		%%
-		function init(this, hs, biasCoef) 
+		function init(this, h, hs) 
             % Contact normal always point form body2 to body1
             if(this.body1.layer < this.body2.layer)
                 temp = this.body1;
@@ -63,7 +63,7 @@ classdef ConCollRigidRigid < apbd.ConColl
             % Now we can assume body1 is always above body2
 
             this.d = this.body1.transformPoint(this.x1) - this.body2.transformPoint(this.x2);
-            scale = min([0.8 biasCoef]);
+            scale = min([0.8 2 * sqrt(hs / h)]);
             if this.nw' * this.d <= 0
                 this.biasCoefficient = -scale / hs;
             else
@@ -108,13 +108,11 @@ classdef ConCollRigidRigid < apbd.ConColl
         end
 
 		%%
-		function solveNorPos(this, withSP)
+		function solveNorPos(this, minpenetration, withSP)
             if(~withSP)
                 sep = this.nw' * this.body1.deltaLinDt + this.raXnI1(:,1)' * this.body1.deltaAngDt + this.nw' * this.d;
                 sep = sep - (this.nw' * this.body2.deltaLinDt + this.raXnI2(:,1)' * this.body2.deltaAngDt);
-                if (sep < 0)
-                    %sep = 0;
-                end
+                sep = max(minpenetration,sep);
                 bias = sep * this.biasCoefficient;
                 %normalVel = this.nw' * this.body.computePointVel(this.xl);
                 normalVel = this.nw .* this.body1.v + this.body1.w .* this.raXnI1(:,1);
@@ -131,17 +129,14 @@ classdef ConCollRigidRigid < apbd.ConColl
                 this.body2.v = this.body2.v - this.dlambdaNor * this.delLinVel2(:,1);
                 this.body2.w = this.body2.w - this.dlambdaNor * this.raXnI2(:,1);
             else
-                %{
                 sep = this.nw' * this.body1.deltaLinDt + this.raXnI1(:,1)' * this.body1.deltaAngDt + this.nw' * this.d;
-                if (sep < 0)
-                    %sep = 0;
-                end
+                sep = max(minpenetration,sep);
                 bias = sep * this.biasCoefficient;
                 %normalVel = this.nw' * this.body.computePointVel(this.xl);
-                %}
+                
                 normalVel = this.nw .* this.body1.v + this.body1.w .* this.raXnI1(:,1);
-                %this.dlambdaNor =  bias / (this.w1(1)) - sum(normalVel) / (this.w1(1));
-                this.dlambdaNor = - sum(normalVel) / (this.w1(1));
+                this.dlambdaNor =  bias / (this.w1(1)) - sum(normalVel) / (this.w1(1));
+                %this.dlambdaNor = - sum(normalVel) / (this.w1(1));
                 lambda = this.lambda(1) + this.dlambdaNor;
                 if(lambda < 0)
                     this.dlambdaNor = - this.lambda(1);
@@ -165,7 +160,7 @@ classdef ConCollRigidRigid < apbd.ConColl
                     bias = sep * this.biasCoefficient;
                     normalVel = this.contactFrame(:,i) .* this.body1.v + this.body1.w .* this.raXnI1(:,i);
                     normalVel = normalVel - (this.contactFrame(:,i) .* this.body2.v + this.body2.w .* this.raXnI2(:,i));
-                    dlambdaTan(i-1) =  (bias / (this.w1(1) + this.w2(1)) - sum(normalVel) / (this.w1(1) + this.w2(1)))*0.8;
+                    dlambdaTan(i-1) =  (bias / (this.w1(i) + this.w2(i)) - sum(normalVel) / (this.w1(i) + this.w2(i)))*0.8;
                 end
                 dlambdas = [0;dlambdaTan];
                 %dlambdas = this.wMat \ b;
@@ -184,11 +179,11 @@ classdef ConCollRigidRigid < apbd.ConColl
             else
                 for i = 2:3
                     %sep = this.contactFrame(:,i)' * this.body1.deltaLinDt + this.raXnI1(:,i)' * this.body1.deltaAngDt;
-                    %sep = this.contactFrame(:,i)' * this.body1.deltaLinDt + this.raXnI1(:,i)' * this.body1.deltaAngDt + this.contactFrame(:,i)' * this.d;
-                    %bias = sep * this.biasCoefficient;
+                    sep = this.contactFrame(:,i)' * this.body1.deltaLinDt + this.raXnI1(:,i)' * this.body1.deltaAngDt + this.contactFrame(:,i)' * this.d;
+                    bias = sep * this.biasCoefficient;
                     normalVel = this.contactFrame(:,i) .* this.body1.v + this.body1.w .* this.raXnI1(:,i);
-                    %dlambdaTan(i-1) =  (bias / (this.w1(1)) - sum(normalVel) / (this.w1(1)))*0.8;
-                    dlambdaTan(i-1) = - sum(normalVel) / this.w1(1) * 0.8;
+                    dlambdaTan(i-1) =  (bias / (this.w1(i)) - sum(normalVel) / (this.w1(i)))*0.8;
+                    %dlambdaTan(i-1) = - sum(normalVel) / this.w1(1) * 0.8;
                 end
                 dlambdas = [0;dlambdaTan];
                 %dlambdas = this.wMat \ b;

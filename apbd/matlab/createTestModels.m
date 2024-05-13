@@ -294,9 +294,9 @@ switch(modelID)
 	case 7
 		model.name = 'Rigid Collisions';
 		model.plotH = false;
-		model.tEnd = 5;
+		model.tEnd = 1;
 		model.h = 1/100;
-		model.substeps = 20;
+		model.substeps = 100;
 		model.iters = 1;
         %model.itersSP = 30;
 		density = 1.0;
@@ -320,7 +320,7 @@ switch(modelID)
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x = 0.04*i;
+			x = 0.4*i;
             %x = (i-0.5)*w*0.9;
 			y = 0;
 			z = (i-0.5 + i *0.0)*w;
@@ -329,7 +329,7 @@ switch(modelID)
 			E(1:3,4) = R * [x y z]';
 			model.bodies{end}.setInitTransform(E);
             if i == 2
-                model.bodies{end}.setInitVelocity([0 0 0 100 0 0]');
+                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
         %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,-0.5,0-0.5]');
@@ -754,23 +754,23 @@ switch(modelID)
 		sides = [w w w];
 		model.grav = [0 0 -981]';
 		model.ground.E = eye(4);
-		mu = 0.0;
+		mu = 0.5;
 
 		model.ground.size = 10;
-		model.axis = 5*[-1 1 -1 1 0 1];
-		model.drawHz = 10000;
+		model.axis = 8*[-1 1 -1 1 0 1];
+		model.drawHz = 60;
 
 		model.view = [0 0];
 
-		n = 5;
-        halfAngle = (18/180) * pi;
+		n = 10;
+        halfAngle = (9/180) * pi;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4, halfAngle),density);
             %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
             theta = (i*2-1)*halfAngle;
-            r = 0.8 / sin(halfAngle);
+            r = 0.9 / sin(halfAngle);
     		R = se3.aaToMat([0 1 0], pi/2 + theta);
 			E = eye(4);
 			x = -r * cos(theta);
@@ -796,7 +796,7 @@ switch(modelID)
 			E(1:3,4) = [x y z]';
 			model.bodies{end}.setInitTransform(E);
             if i == 1
-                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
         %}

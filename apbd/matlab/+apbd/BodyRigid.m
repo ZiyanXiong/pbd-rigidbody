@@ -78,7 +78,7 @@ classdef BodyRigid < apbd.Body
             invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
             angularMotionVel = invsqrtI * this.w;
             wNorm =  norm(angularMotionVel);
-            if(wNorm>0)
+            if(wNorm>1e-9)
                 halfWDt = 0.5 * wNorm * hs;
                 dq = [angularMotionVel * sin(halfWDt)/ wNorm; 0];
                 result = se3.qMul(dq, this.deltaBody2Worldq);

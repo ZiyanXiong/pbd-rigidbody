@@ -8,6 +8,7 @@ classdef Collider < handle
 		bpList2
 		collisions
         activeCollisions
+        groundBodyIndex
         bodyNum
 	end
 
@@ -19,6 +20,7 @@ classdef Collider < handle
 			this.bpList2 = {};
             this.bodyNum = length(model.bodies);
             this.activeCollisions = [];
+            this.groundBodyIndex = [];
 			this.collisions = cell(1,(this.bodyNum+1)*this.bodyNum/2);
             for i = 1 : this.bodyNum
                 for j = i : this.bodyNum
@@ -38,6 +40,7 @@ classdef Collider < handle
 			this.bpList1 = {};
 			this.bpList2 = {};
             this.activeCollisions = [];
+            this.groundBodyIndex = [];
 
 			this.broadphase();
 			this.narrowphase();
@@ -46,14 +49,8 @@ classdef Collider < handle
 
         %%
         function constructCollisionOrder(this)
-            groundBodyIndex = [];
-            for i = 1:length(this.bpList1)
-                this.bpList1{i}.layer = 1;
-                groundBodyIndex(end + 1) =  this.bpList1{i}.index;
-            end
-
-            for i = 1 : length(groundBodyIndex)
-                groundIndex = groundBodyIndex(i);
+            for i = 1 : length(this.groundBodyIndex)
+                groundIndex = this.groundBodyIndex(i);
                 nextBodyQueue = groundIndex;
                 while ~isempty(nextBodyQueue)
                     currentIndex = nextBodyQueue(1);
@@ -117,6 +114,8 @@ classdef Collider < handle
                 end
                 this.collisions{body.index}.getConstraints();
                 if(this.collisions{body.index}.contactNum ~= 0)
+                    this.groundBodyIndex(end+1) = body.index;
+                    body.layer = 1;
                     this.activeCollisions(end+1) = body.index;
                     this.collisions{body.index}.broken = false;
                 end

@@ -57,10 +57,10 @@ classdef ShapeTwoCuboid < apbd.Shape
             cdata1 = this.cuboid1.narrowphaseGround(E*this.E1,Eg);
             cdata2 = this.cuboid1.narrowphaseGround(E*this.E2,Eg);
             for i = 1: length(cdata1)
-                cdata1(i).xl = this.toCenterLocal(this.E1,cdata1(i).xl);
+                cdata1(i).x1 = this.toCenterLocal(this.E1,cdata1(i).x1);
             end
             for i = 1: length(cdata2)
-                cdata2(i).xl = this.toCenterLocal(this.E2,cdata2(i).xl);
+                cdata2(i).x1 = this.toCenterLocal(this.E2,cdata2(i).x1);
             end
             cdata = [cdata1 cdata2];
 		end

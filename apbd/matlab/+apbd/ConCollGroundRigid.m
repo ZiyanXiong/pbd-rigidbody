@@ -37,15 +37,14 @@ classdef ConCollGroundRigid < apbd.ConColl
 		end
 
 		%%
-		function init(this, hs, biasCoef)
+		function init(this, h, hs)
             this.d = this.body.transformPoint(this.xl) - this.xw;
-            scale = min([0.8 biasCoef]);
+            scale = min([0.8 2 * sqrt(hs / h)]);
             if this.nw' * this.d <= 0
                 this.biasCoefficient = -scale / hs;
             else
                 this.biasCoefficient = -1 / hs;
             end
-
             this.lambda = zeros(3,1);
             [tanx,tany] = apbd.ConColl.generateTangents(this.nw);
             this.contactFrame = [this.nw, tanx, tany];
@@ -72,10 +71,10 @@ classdef ConCollGroundRigid < apbd.ConColl
         end
 
 		%%
-		function solveNorPos(this, withSP)
+        function solveNorPos(this, minpenetration, withSP)
             %sep = this.nw' * (this.body.transformPoint(this.xl) - this.xw0) + this.d;
             sep = this.nw' * this.body.deltaLinDt + this.raXnI1(:,1)' * this.body.deltaAngDt + this.nw'* this.d;
-            %sep = min(0,sep);
+            sep = max(minpenetration,sep);
             bias = sep * this.biasCoefficient;
             %normalVel = this.nw' * this.body.computePointVel(this.xl);
             normalVel = this.nw .* this.body.v + this.body.w .* this.raXnI1(:,1);

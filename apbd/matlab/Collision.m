@@ -41,9 +41,9 @@ classdef Collision < handle
         end
 
         %%
-        function solveCollisionNor(this, withSP)
+        function solveCollisionNor(this, minPenetration, withSP)
             for i = 1 : this.contactNum
-                this.constraints{i}.solveNorPos(withSP);
+                this.constraints{i}.solveNorPos(minPenetration, withSP);
             end
         end
 
