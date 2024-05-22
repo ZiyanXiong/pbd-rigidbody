@@ -3,6 +3,46 @@ function model = createTestModel(modelID, h, substeps)
 model = apbd.Model();
 
 switch(modelID)
+    	case 0
+		model.name = 'Stacking: 10 rigid bodies with offset';
+		model.plotH = false;
+		model.tEnd = 1;
+		model.h = h;
+		model.substeps = substeps;
+		model.iters = 1;
+        %model.itersSP = 30;
+		density = 1.0;
+		w = 1;
+		sides = [w w w];
+		model.grav = [0 0 -980]';
+		model.ground.E = eye(4);
+		mu = 0.0;
+
+		model.ground.size = 20;
+		model.axis = 2*[-1 1 -1 1 0 1];
+		model.drawHz = 1000;
+
+		model.view = [0 0];
+
+		n = 2;
+		for i = 1 : n
+			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+    		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+            R = se3.aaToMat([0 0 1], 0.0);
+			E = eye(4);
+			x = i - 1 + 0.1 * i;
+			y = 0;
+			z = (i-0.5 + i *0.0)*w;
+            %z = 0.5 * w;
+            E(1:3,1:3) = R;
+			E(1:3,4) = R * [x y z]';
+			model.bodies{end}.setInitTransform(E);
+            if i == 1
+                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+            end
+        end
     	case 1
 		model.name = 'Stacking: 10 rigid bodies with offset';
 		model.plotH = false;
@@ -364,7 +404,7 @@ switch(modelID)
         %model.itersSP = 30;
 		density = 1.0;
 		w = 1;
-        l = 1;
+        l = 2;
 		sides = [l w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
@@ -376,15 +416,15 @@ switch(modelID)
 
 		model.view = [0 0];
 
-		for i = 1 : 5
-            for j = 1 : 2
+		for i = 1 : 6
+            for j = 1 : 3
 			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			    model.bodies{end}.collide = true;
 			    model.bodies{end}.mu = mu;
     		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
                 R = se3.aaToMat([0 0 1], 0.0);
 			    E = eye(4);
-			    x = mod(i+1,2)*0.3*l + (j-0.5) * l - l;
+			    x = mod(i+1,2)*0.45*l + (j-0.5) * l - l*2.5 + j * 0.0;
 			    y = 0;
 			    z = (i-0.5 + i *0.0)*w;
                 E(1:3,1:3) = R;
@@ -649,14 +689,14 @@ switch(modelID)
 		model.iters = 1;
         %model.itersSP = 3;
 		density = 1.0;
-		w = 1;
+		w = 3;
 		sides = [w w w];
 		model.grav = [0 0 -981]';
 		model.ground.E = eye(4);
 		mu = 0.9;
 
 		model.ground.size = 10;
-		model.axis = 8*[-1 1 -1 1 0 1];
+		model.axis = 20*[-1 1 -1 1 0 1];
 		model.drawHz = 60;
 
 		model.view = [0 0];
@@ -664,12 +704,12 @@ switch(modelID)
 		n = 10;
         halfAngle = (9/180) * pi;
 		for i = 1 : n
-			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4, halfAngle),density);
+			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4*3, halfAngle),density);
             %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
             theta = (i*2-1)*halfAngle;
-            r = 0.9 / sin(halfAngle);
+            r = 0.89 / sin(halfAngle) * 3;
     		R = se3.aaToMat([0 1 0], pi/2 + theta);
 			E = eye(4);
 			x = -r * cos(theta);

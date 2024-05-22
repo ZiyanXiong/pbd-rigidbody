@@ -12,7 +12,7 @@ classdef ConCollGroundRigid < apbd.ConColl
         w1   % Generalized mass vector (3x1)
         delLinVel1 % Unit change for linear velocity matrix(3x3)
         angDelta1 % Unit change for angular velocity matrix(3x3)
-        raXnI1  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXn  % ra X nw * sqrt(I^(-1)) matrix(3x3)
 
         mu
         biasCoefficient
@@ -30,7 +30,7 @@ classdef ConCollGroundRigid < apbd.ConColl
 
             this.contactFrame = zeros(3,3);
             this.w1 = zeros(3,1);
-            this.raXnI1 = zeros(3,3);
+            this.raXn = zeros(3,3);
             this.delLinVel1 = zeros(3,3);
             this.angDelta1 = zeros(3,3);
             this.collision = collision;
@@ -58,8 +58,9 @@ classdef ConCollGroundRigid < apbd.ConColl
             for i = 1:3
                 nl1 = se3.qRotInv(q1, this.contactFrame(:,i));
 			    rnl1 = se3.cross(rl1,nl1);
-                this.raXnI1(:,i) = se3.qRot(q1,(sqrt(I1).\rnl1));
-			    this.w1(i) = (1/m1) +this.raXnI1(:,i)' * this.raXnI1(:,i);
+                raXnI1 = se3.qRot(q1,(sqrt(I1).\rnl1));
+			    this.w1(i) = (1/m1) +raXnI1' * raXnI1;
+                this.raXn(:,i) = se3.qRot(q1,rnl1);
                 
                 this.delLinVel1(:,i) = this.contactFrame(:,i) / m1;
                 this.angDelta1(:,i) = se3.qRot(q1,(I1.\rnl1));
@@ -73,11 +74,11 @@ classdef ConCollGroundRigid < apbd.ConColl
 		%%
         function solveNorPos(this, minpenetration, withSP)
             %sep = this.nw' * (this.body.transformPoint(this.xl) - this.xw0) + this.d;
-            sep = this.nw' * this.body.deltaLinDt + this.raXnI1(:,1)' * this.body.deltaAngDt + this.nw'* this.d;
+            sep = this.nw' * this.body.deltaLinDt + this.raXn(:,1)' * this.body.deltaAngDt + this.nw'* this.d;
             sep = max(minpenetration,sep);
             bias = sep * this.biasCoefficient;
             %normalVel = this.nw' * this.body.computePointVel(this.xl);
-            normalVel = this.nw .* this.body.v + this.body.w .* this.raXnI1(:,1);
+            normalVel = this.nw .* this.body.v + this.body.w .* this.raXn(:,1);
             this.dlambdaNor =  bias / this.w1(1) - sum(normalVel) / this.w1(1);
             lambda = this.lambda(1) + this.dlambdaNor;
             if(lambda < 0)
@@ -86,16 +87,16 @@ classdef ConCollGroundRigid < apbd.ConColl
             end
             this.lambda(1) = this.lambda(1) + this.dlambdaNor;
             this.body.v = this.body.v + this.dlambdaNor * this.delLinVel1(:,1);
-            this.body.w = this.body.w + this.dlambdaNor * this.raXnI1(:,1);
+            this.body.w = this.body.w + this.dlambdaNor * this.angDelta1(:,1);
         end
 
 		%%
         function solveTanVel(this, withSP)
             dlambdaTan = zeros(2,1);
             for i = 2:3
-                sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXnI1(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.d;
+                sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.d;
                 bias = sep * this.biasCoefficient;
-                normalVel = this.contactFrame(:,i) .* this.body.v + this.body.w .* this.raXnI1(:,i);
+                normalVel = this.contactFrame(:,i) .* this.body.v + this.body.w .* this.raXn(:,i);
                 dlambdaTan(i-1) =  (bias / this.w1(i) - sum(normalVel) / this.w1(i))*0.8;
             end
             dlambdas = [0;dlambdaTan];
@@ -109,7 +110,7 @@ classdef ConCollGroundRigid < apbd.ConColl
             end
             this.lambda = this.lambda + dlambdas;
             this.body.v = this.body.v + this.delLinVel1 * dlambdas;
-            this.body.w = this.body.w + this.raXnI1 * dlambdas;
+            this.body.w = this.body.w + this.angDelta1 * dlambdas;
         end
 
         %%

@@ -1,4 +1,5 @@
-model = createTestModel(11,1e-2,20);
+
+model = createTestModel(17,1e-2,20);
 model.solverType = 3;
 model.init();
 model.simulate();
@@ -6,7 +7,7 @@ model.simulate();
 
 %% Code for generating video results
 %{
-for i = 1:14
+for i = 10:10
     filename = strcat('Scene_',string(i));
     resultFolder = strcat('Results\MATLAB\');
     if ~exist(resultFolder, 'dir')

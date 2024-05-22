@@ -73,10 +73,11 @@ classdef BodyRigid < apbd.Body
 		
         %%
         function updateStates(this, hs)
-			q = this.x0(1:4);
-            R = se3.qToMat(q);
-            invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
-            angularMotionVel = invsqrtI * this.w;
+			%q = this.x0(1:4);
+            %R = se3.qToMat(q);
+            %invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
+            %angularMotionVel = invsqrtI * this.w;
+            angularMotionVel = this.w;
             wNorm =  norm(angularMotionVel);
             if(wNorm>1e-9)
                 halfWDt = 0.5 * wNorm * hs;
@@ -96,10 +97,10 @@ classdef BodyRigid < apbd.Body
 
         %%
         function integrateStates(this)
-			q = this.x0(1:4);
-            R = se3.qToMat(q);
-            invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
-            this.w = invsqrtI * this.w;
+			%q = this.x0(1:4);
+            %R = se3.qToMat(q);
+            %invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
+            %this.w = invsqrtI * this.w;
             this.x(1:4) = se3.qMul(this.deltaBody2Worldq, this.x0(1:4));
             this.x(5:7) = this.x0(5:7) + this.deltaBody2Worldp;
             this.deltaBody2Worldp = zeros(3,1);
@@ -204,8 +205,9 @@ classdef BodyRigid < apbd.Body
 			%q = q/norm(q);
 			%this.x(1:4) = q;
 			%this.x(5:7) = p;
-            sqrtInertia = R * diag(sqrt(this.Mr)) * R';
-            this.w = sqrtInertia * w;
+            %sqrtInertia = R * diag(sqrt(this.Mr)) * R';
+            %this.w = sqrtInertia * w;
+            this.w = w;
             this.v = v;
 		end
 

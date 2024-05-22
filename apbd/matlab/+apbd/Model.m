@@ -36,6 +36,7 @@ classdef Model < handle
 		video %
         solverType % 1: PhysX 2:PhysX+OneWayShockPropagation 3:PhysX+TwoWayShockPropagation
         savedBodyStatesPath
+        
 	end
 
 	methods
@@ -97,9 +98,10 @@ classdef Model < handle
 			this.ks = 0;
 
 			this.computeEnergies();
-			%this.draw();
             if ~isempty(this.savedBodyStatesPath)
                 this.saveBodyStates();
+            else
+                this.draw();
             end
 		end
 
@@ -116,6 +118,8 @@ classdef Model < handle
 				%this.draw();
                 if ~isempty(this.savedBodyStatesPath)
                     this.saveBodyStates();
+                else
+                    this.draw();
                 end
 			end
         end
@@ -163,7 +167,7 @@ classdef Model < handle
                 end
 
                 for i = 1 : length(this.bodies)
-                    this.bodies{i}.updateStates(this.hs);
+                    %this.bodies{i}.updateStates(this.hs);
                 end 
             end
 
@@ -217,8 +221,121 @@ classdef Model < handle
                 this.bodies{i}.integrateStates();
             end
             
-		end
+        end
 
+        %%
+        function dfdp = backward(this)
+            x_target = [0 0 0 1 0 0 0]';
+            stateLength = 6;
+            bodyNum = length(this.bodies);
+            conNum = length(this.collider.activeCollisions);
+            n = this.steps * bodyNum * stateLength;
+            y = zeros(n,1);
+            H = eye(n);
+            xs = [];
+            for i  = 1:length(this.bodies{1}.xs_bar)
+                for j = 1:bodyNum
+                    xs = [xs;this.bodies{j}.xs_bar{i}];
+                end
+            end
+            y(this.steps*stateLength:end) = xs(this.steps*stateLength:end) - x_target;  
+
+            for i = 1 : this.steps
+                if i == 2
+                    for p = 1 : bodyNum
+                        this.bodies{p}.x = xs(ind.getInd(i-1,this.iters,conNum));
+                        this.bodies{p}.x0 = this.bodies{p}.xInit;
+                        index = this.bodies{p}.index;
+		                [dUncondu,~] = this.bodies{p}.dUnconudPrevu(this.hs);
+                        H(ind.getInd(i,0,0,index),ind.getInd(i-1,this.iters,conNum,index)) = -dUncondu;
+                    end
+                end
+
+                if i > 2
+                    for p = 1 : bodyNum
+                        this.bodies{p}.x = xs(ind.getInd(i-1,this.iters,conNum));
+                        this.bodies{p}.x0 =  xs(ind.getInd(i-2,this.iters,conNum));
+                        index = this.bodies{p}.index;
+		                [dUncondu,dUncondu0] = this.bodies{p}.dUnconudPrevu(this.hs);
+                        H(ind.getInd(i,0,0,index),ind.getInd(i-1,this.iters,conNum,index)) = -dUncondu;
+                        H(ind.getInd(i,0,0,index),ind.getInd(i-2,this.iters,conNum,index)) = -dUncondu0;
+                    end
+                end
+
+                for j = 1 : this.iters
+                    for p = 1 : conNum
+                        if length(this.constraintList{p}.bodies) == 1
+                            index = this.constraintList{p}.body.index;
+                            this.constraintList{p}.body.x = xs(ind.getInd(i,j,p-1,index));
+                            this.constraintList{p}.body.x1_0 = xs(ind.getInd(i,0,0,index));
+		                    [dnextdx,dnextdx0] = this.constraintList{p}.dnextdx();
+                            H(ind.getInd(i,j,p,index),ind.getInd(i,j,p-1,index)) = H(ind.getInd(i,j,p,index),ind.getInd(i,j,p-1,index)) - dnextdx;
+                            H(ind.getInd(i,j,p,index),ind.getInd(i,0,0,index)) = H(ind.getInd(i,j,p,index),ind.getInd(i,0,-1,index)) - dnextdx0;
+                            for uindex = 1:bodyNum
+                                if uindex ~= index
+                                    H(ind.getInd(i,j,p,uindex),ind.getInd(i,j,p-1,uindex)) = -eye(7);
+                                end
+                            end
+                        end
+                        if length(this.constraintList{p}.bodies) == 2
+                            index1 = this.constraintList{p}.body1.index;
+                            index2 = this.constraintList{p}.body2.index;
+                            this.constraintList{p}.body1.x = xs(ind.getInd(i,j,p-1,index1));
+                            this.constraintList{p}.body1.x1_0 = xs(ind.getInd(i,0,0,index1));
+                            this.constraintList{p}.body2.x = xs(ind.getInd(i,j,p-1,index2));
+                            this.constraintList{p}.body2.x1_0 = xs(ind.getInd(i,0,0,index2));
+                            this.constraintList{p}.setNormal();
+                            this.constraintList{p}.testGradient();
+		                    [dnext1dx1, dnext1dx2, dnext1dx10, dnext1dx20, dnext2dx1, dnext2dx2, dnext2dx10, dnext2dx20] = this.constraintList{p}.dnextdx();
+                            H(ind.getInd(i,j,p,index1),ind.getInd(i,j,p-1,index1)) = H(ind.getInd(i,j,p,index1),ind.getInd(i,j,p-1,index1)) - dnext1dx1;
+                            H(ind.getInd(i,j,p,index1),ind.getInd(i,0,0,index1)) = H(ind.getInd(i,j,p,index1),ind.getInd(i,0,-1,index1)) - dnext1dx10;
+                            H(ind.getInd(i,j,p,index1),ind.getInd(i,j,p-1,index2)) = H(ind.getInd(i,j,p,index1),ind.getInd(i,j,p-1,index2)) - dnext1dx2;
+                            H(ind.getInd(i,j,p,index1),ind.getInd(i,0,0,index2)) = H(ind.getInd(i,j,p,index1),ind.getInd(i,0,-1,index2)) - dnext1dx20;
+
+                            H(ind.getInd(i,j,p,index2),ind.getInd(i,j,p-1,index1)) = H(ind.getInd(i,j,p,index2),ind.getInd(i,j,p-1,index1)) - dnext2dx1;
+                            H(ind.getInd(i,j,p,index2),ind.getInd(i,0,0,index1)) = H(ind.getInd(i,j,p,index2),ind.getInd(i,0,-1,index1)) - dnext2dx10;
+                            H(ind.getInd(i,j,p,index2),ind.getInd(i,j,p-1,index2)) = H(ind.getInd(i,j,p,index2),ind.getInd(i,j,p-1,index2)) - dnext2dx2;
+                            H(ind.getInd(i,j,p,index2),ind.getInd(i,0,0,index2)) = H(ind.getInd(i,j,p,index2),ind.getInd(i,0,-1,index2)) - dnext2dx20;
+                        end
+                    end
+                end
+            end
+            z = H'\ y;
+            %dfdp = z(ind.getInd(1,0,0)) - z(ind.getInd(2,0,0));
+            this.bodies{1}.x = this.bodies{1}.xInit;
+            this.bodies{1}.x0 = this.bodies{1}.xInit;
+            [dUncondu,dUncondu0] = this.bodies{1}.dUnconudPrevu(this.hs);
+            dfdp = (dUncondu + dUncondu0)' * z(ind.getInd(1,0,0,1));
+            %{
+            this.bodies{1}.x = xs(ind.getInd(1,this.iters,conNum));
+            this.bodies{1}.x0 = this.bodies{1}.xInit;
+            [~,dUncondu0] = this.bodies{1}.dUnconudPrevu(this.hs);
+            dfdp = dfdp + dUncondu0' * z(ind.getInd(2,0,0,1));
+            %}
+        end
+
+        %%
+        function H = getH_FD(this)
+
+        end
+        %%
+        function [H_prev, H] = solveTGSGradient(this)
+            stateLength = 6;
+            constraintNum = 4;
+            n = (2 + this.substeps * constraintNum);
+            H_prev = zeros(n * stateLength,n * stateLength);
+            H = ones(n * stateLength,n * stateLength);
+            H_prev(1:stateLength, (n-1) * stateLength:end) = - ones(stateLength);
+            for iter = 1 : this.substeps
+                % Gauss-Seidal 
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        H_sub = this.collider.collisions{j}.getGradient(-Inf, false);
+                        H = H + H_sub;
+                    end
+                end
+            end
+        end
 		%%
 		function computeEnergies(this)
 			T = 0;
