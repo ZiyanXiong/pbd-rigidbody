@@ -24,6 +24,13 @@ classdef BodyRigid < apbd.Body
 			this.density = density;
 			this.Mr = zeros(3,1);
 			this.Mp = 0;
+            this.w = zeros(3,1);
+            this.v = zeros(3,1);
+            this.deltaBody2Worldp = zeros(3,1);
+            this.deltaBody2Worldq = zeros(4,1);
+            this.deltaBody2Worldq(4) = 1;
+            this.deltaLinDt = zeros(3,1);
+            this.deltaAngDt = zeros(3,1);
 
 			this.color = CM(mod(this.index-1,size(CM,1))+1,:);
 			this.axisSize = 1;
@@ -49,6 +56,8 @@ classdef BodyRigid < apbd.Body
 			q = this.xInit(1:4);
 			this.xdotInit(5:7) = se3.qRot(q,phi(4:6));
 			this.xdotInit(1:4) = se3.wToQdot(q,phi(1:3));
+            this.v = phi(4:6);
+            this.w = phi(1:3);
 			% Debug
 			% Edot = E0*se3.brac(phi);
 			% this.xdotInit(5:7) = Edot(1:3,4);
@@ -62,6 +71,50 @@ classdef BodyRigid < apbd.Body
 			% qdot_ = (q1 - q0)/h;
 		end
 		
+        %%
+        function updateStates(this, hs)
+			%q = this.x0(1:4);
+            %R = se3.qToMat(q);
+            %invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
+            %angularMotionVel = invsqrtI * this.w;
+            angularMotionVel = this.w;
+            wNorm =  norm(angularMotionVel);
+            if(wNorm>1e-9)
+                halfWDt = 0.5 * wNorm * hs;
+                dq = [angularMotionVel * sin(halfWDt)/ wNorm; 0];
+                result = se3.qMul(dq, this.deltaBody2Worldq);
+                result = result + this.deltaBody2Worldq * cos(halfWDt);
+                this.deltaBody2Worldq = result / norm(result);
+            end
+            this.deltaBody2Worldp = this. deltaBody2Worldp + this.v * hs;
+
+            this.deltaAngDt = this.deltaAngDt + this.w * hs;
+            this.deltaLinDt = this.deltaLinDt + this.v * hs;
+
+            this.x(1:4) = se3.qMul(this.deltaBody2Worldq, this.x0(1:4));
+            this.x(5:7) = this.x0(5:7) + this.deltaBody2Worldp;
+        end
+
+        %%
+        function integrateStates(this)
+			%q = this.x0(1:4);
+            %R = se3.qToMat(q);
+            %invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
+            %this.w = invsqrtI * this.w;
+            this.x(1:4) = se3.qMul(this.deltaBody2Worldq, this.x0(1:4));
+            this.x(5:7) = this.x0(5:7) + this.deltaBody2Worldp;
+            this.deltaBody2Worldp = zeros(3,1);
+            this.deltaBody2Worldq = zeros(4,1);
+            this.deltaBody2Worldq(4) = 1;
+            
+            this.deltaLinDt = zeros(3,1);
+            this.deltaAngDt = zeros(3,1);
+
+            %Clear contact information
+            this.layer = 99;
+            this.neighbors = [];
+        end
+
 		%%
 		function E = computeTransform(this)
 			E = eye(4);
@@ -73,6 +126,13 @@ classdef BodyRigid < apbd.Body
 		function xw = transformPoint(this,xl)
 			q = this.x(1:4);
 			p = this.x(5:7);
+			xw = se3.qRot(q,xl) + p;
+        end
+
+		%%
+		function xw = transformPointPrev(this,xl)
+			q = this.x0(1:4);
+			p = this.x0(5:7);
 			xw = se3.qRot(q,xl) + p;
 		end
 
@@ -104,55 +164,63 @@ classdef BodyRigid < apbd.Body
 		end
 
 		%%
-		function v = computePointVel(this,xl,hs)
-			%xdot = this.computeVelocity(k,ks,hs);
-            xdot = (this.x - this.x0)/hs;
+		function v = computePointVel(this,xl)
+            %{
+			xdot = this.computeVelocity(k,ks,hs);
 			qdot = xdot(1:4);
 			pdot = xdot(5:7); % in world coords
 			q = this.x(1:4);
 			w = se3.qdotToW(q,qdot); % angular velocity in body coords
 			% v = R*cross(w,xl) + pdot
 			v = se3.qRot(q,se3.cross(w,xl)) + pdot;
-        end
+            %}
+            q = this.x(1:4);
+            rw = se3.qRot(q,xl);
+            v = se3.cross(this.w,rw) + this.v;
+		end
 		
         %%
-		function stepBDF1(this,k,ks,hs,grav)
-			xdot = this.computeVelocity(k,ks,hs);
-			qdot = xdot(1:4);
-			v = xdot(5:7); % pdot
+		function stepBDF1(this,h,grav)
             this.x0 = this.x;
+			v = this.v; % pdot
 			q = this.x(1:4);
 			p = this.x(5:7);
-			w = se3.qdotToW(q,qdot); % angular velocity in body coords
+            R = se3.qToMat(q);
+            %R = eye(3);
+			w = this.w; % angular velocity in body coords
 			f = zeros(3,1); % translational force in world space
 			t = zeros(3,1); % angular torque in body space
 			m = this.Mp; % scalar mass
-			I = this.Mr; % inertia in body space
-			Iw = I.*w; % angular momentum in body space
+			I = R * diag(this.Mr) * R'; % inertia in world space;
+			Iw = I*w; % angular momentum in body space
 			f = f + m*grav; % Gravity
 			t = t + se3.cross(Iw,w); % Coriolis
 			% Integrate velocities
-			w = w + hs*(I.\t);
-			v = v + hs*(m \f);
-			qdot = se3.wToQdot(q,w);
+			w = w + h*(I\t);
+			v = v + h*(m \f);
+			%qdot = se3.wToQdot(q,w);
 			% Integrate positions
-			q = q + hs*qdot;
-			p = p + hs*v;
-			q = q/norm(q);
-			this.x(1:4) = q;
-			this.x(5:7) = p;
-            this.x1_0 = this.x;
-            this.x1 = this.x1_0;
+			%q = q + hs*qdot;
+			%p = p + hs*v;
+			%q = q/norm(q);
+			%this.x(1:4) = q;
+			%this.x(5:7) = p;
+            %sqrtInertia = R * diag(sqrt(this.Mr)) * R';
+            %this.w = sqrtInertia * w;
+            this.w = w;
+            this.v = v;
 		end
 
 		%%
 		function [T,V] = computeEnergies(this,k,ks,hs,grav)
-			xdot = this.computeVelocity(k,ks,hs);
-			qdot = xdot(1:4);
-			v = xdot(5:7); % pdot
+			%xdot = this.computeVelocity(k,ks,hs);
+			%qdot = xdot(1:4);
+			%v = xdot(5:7); % pdot
+            v = this.v; % pdot
+            w = this.w; % angular velocity in body coords
 			q = this.x(1:4);
 			p = this.x(5:7);
-			w = se3.qdotToW(q,qdot); % angular velocity in body coords
+			%w = se3.qdotToW(q,qdot); % angular velocity in body coords
 			m = this.Mp; % scalar mass
 			I = this.Mr; % inertia in body space
 			Iw = I.*w; % angular momentum in body space

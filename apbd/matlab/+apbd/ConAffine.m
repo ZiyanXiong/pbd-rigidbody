@@ -1,4 +1,4 @@
-classdef ConAffine < apbd.ConBase
+classdef ConAffine < apbd.Con
 	%ConAffine Constraint for orthogonality
 
 	properties
@@ -8,7 +8,7 @@ classdef ConAffine < apbd.ConBase
 	methods
 		%%
 		function this = ConAffine(affine)
-			this = this@apbd.ConBase(6);
+			this = this@apbd.Con(6);
 			this.affine = affine;
 		end
 

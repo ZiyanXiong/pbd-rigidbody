@@ -32,8 +32,7 @@ classdef ConJointFix < apbd.ConJoint
 			else
 				this.ql2 = [];
 				this.pl2 = [];
-            end
-            this.ground=true;
+			end
 		end
 
 		%%
@@ -53,7 +52,7 @@ classdef ConJointFix < apbd.ConJoint
 		end
 
 		%%
-		function solve(this,~)
+		function solve(this)
 			if length(this.bodies) == 1
 				body1 = this.bodies{1};
 				q1 = body1.x(1:4);

@@ -6,20 +6,24 @@ classdef (Abstract) Body < handle
 		n        % DOF count
 		xInit    % Initial position
 		xdotInit % Initial velocity
-        x        % Projected position
+        x        % position
         x0       % Previous position
-        x1       % Positions updated in solvers
-        x1_0     % Position after BDF1 Update
 		dxJacobi % Jacobi updates
-        dxJacobiShock % Jacobi updates after shock propagation
-        shockParentConIndex % Constraints for shock propagation
-        conIndex % Constraints related to this body
-        layer    % How far from the ground
+        dphiJacobi % Jacobi updates
 		collide  % Collision on/off
 		mu       % Coefficient of friction
 
+        v        % Linear Velocity
+        w        % Angular Velocity
+        deltaLinDt % Change of linear motion
+        deltaAngDt % Change of angular motion
+        deltaBody2Worldp % Change of linear motion
+        deltaBody2Worldq % Change of angular motion
+
 		% Drawing etc.
 		index    % Body index
+        layer    % Which contact layer this body is
+        neighbors % Indices for neighobor bodies
     end
 
 	%%
@@ -31,17 +35,14 @@ classdef (Abstract) Body < handle
 			this.xdotInit = zeros(n,1);
 			this.x = zeros(n,1);
 			this.x0 = zeros(n,1);
-            this.x1 = zeros(n,1);
-            this.x1_0 = zeros(n,1);
 			this.dxJacobi = zeros(n,1);
-            this.dxJacobiShock = zeros(n,1);
+            this.dphiJacobi = zeros(n-1,1);
 			this.collide = false;
 			this.mu = 0;
-            this.shockParentConIndex = {};
-            this.conIndex = [];
-            this.layer = 99;
 
 			this.index = apbd.Model.countB();
+            this.layer = 99;
+            this.neighbors = [];
 		end
 
 		%%
@@ -58,46 +59,60 @@ classdef (Abstract) Body < handle
 
 		%%
 		function applyJacobi(this)
-			this.x1 = this.x1 + this.dxJacobi;
-			this.dxJacobi = zeros(this.n,1);
-            this.regularize();
-        end
-
-		%%
-		function applyJacobiShock(this)
-			this.x1 = this.x1 + this.dxJacobiShock;
-			this.dxJacobiShock = zeros(this.n,1);
-            this.regularize();
-        end
-
-        %%
-        function regularize(this)
-            this.x = this.x1;
-            if length(this.x) == 4
-                q = apbd.BodyRigid2d.unproj(this.x);
-                qNormalized = q ./ norm(q,2);
-                this.x(1:2) = qNormalized(3:4);
-            elseif length(this.x) == 7
+			this.x = this.x + this.dxJacobi;
+            if length(this.x) == 7
                 q = this.x(1:4);
                 qNormalized = q ./ norm(q,2);
                 this.x(1:4) = qNormalized;
-            elseif length(this.x) == 12
-                A = reshape(this.x(1:9),3,3)';
-                [U,~,V] = svd(A);
-                A = U * V';
-                this.x(1:9) = reshape(A',9,1);
             end
+			this.dxJacobi = zeros(this.n,1);
         end
 
 		%%
+		function applyVelJacobi(this)
+            if length(this.x) == 7
+                this.v = this.v + this.dphiJacobi(1:3);
+                this.w = this.w + this.dphiJacobi(4:6);
+            end
+			this.dphiJacobi = zeros(this.n-1,1);
+		end
+
+		%%
 		function xdot = computeVelocity(this,k,ks,hs)
+            %{
 			% Compute velocity from position
 			if k == 0 && ks == 0
 				xdot = this.xdotInit;
 			else
 				xdot = (this.x - this.x0)/hs;
-			end
+            end
+			qdot = xdot(1:4);
+			this.v = xdot(5:7); % in world coords
+			q = this.x(1:4);
+			this.w = se3.qdotToW(q,qdot); % angular velocity in body coords
+            %}
+            
+            %{
+			% Multiply method
+			if k == 0 && ks == 0
+				xdot = this.xdotInit;
+			else
+				xdot = (this.x - this.x0)/hs;
+                xdot(1:4) = se3.qMulInv(this.x(1:4), this.x0(1:4));
+            end
+            %}
+
+			xdot = (this.x - this.x0)/hs;
+            xdot(1:4) = se3.qMulInv(this.x(1:4), this.x0(1:4));
+			dq = xdot(1:4);
+			this.v = xdot(5:7); % in world coords
+			this.w = 2* dq(1:3) / hs;
+            if dq(4) < 0
+                this.w = -this.w;
+            end
+            
 		end
+            
 
 	end
 
