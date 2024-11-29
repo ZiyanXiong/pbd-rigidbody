@@ -1,5 +1,4 @@
-
-model = createTestModel(17,1e-2,20);
+model = createTestModel(18,1e-2,20);
 model.solverType = 3;
 model.init();
 model.simulate();

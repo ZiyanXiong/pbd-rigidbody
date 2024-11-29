@@ -743,6 +743,80 @@ switch(modelID)
         %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,0.5,0-0.5]');
         %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,0.5,0-0.5]');
         %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,-0.5,0-0.5]');
+    	case 18
+		model.name = 'Stacking: Mesh';
+		model.plotH = false;
+		model.tEnd = 1;
+		model.h = h;
+		model.substeps = substeps;
+		model.iters = substeps;
+        %model.itersSP = 30;
+		density = 1.0;
+		w = 2;
+		sides = [w w w];
+		model.grav = [0 0 -980]';
+		model.ground.E = eye(4);
+		mu = 0.5;
+
+		model.ground.size = 20;
+		model.axis = 2*w*[-1 1 -1 1 0 1];
+		model.drawHz = 1000;
+
+		model.view = [0 0];
+
+		angle = -90*pi/180;
+        meshShape = apbd.ShapeMeshObj('./ShapeFiles/bunny.obj');
+        meshShape.computeInertia(density);
+		n = 2;
+		for i = 1 : n
+			model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+    		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+            %R = se3.aaToMat([0 0 1], 0.0);
+            R = se3.aaToMat([0 0 1],angle);
+			E = eye(4);
+			x = 0 * w * (i-1);
+			y = 0.75 * w * (i-2);
+			%z = (i-0.5 + i *0.0)*w;
+            z = -0.2 * w;
+            E(1:3,1:3) = R;
+			E(1:3,4) = R * [x y z]';
+			model.bodies{end}.setInitTransform(E*meshShape.E_oi);
+            if i == 2
+                %model.bodies{end}.setInitVelocity([0 0 0 1 0 0]');
+            end
+        end
+
+		model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
+		model.bodies{end}.collide = true;
+		model.bodies{end}.mu = mu;
+		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+        %R = se3.aaToMat([0 0 1], 0.0);
+        R = se3.aaToMat([0 0 1],angle);
+		E = eye(4);
+		x = -1.25;
+		y = -0.75;
+		%z = (i-0.5 + i *0.0)*w;
+        z = -0.2 * w;
+        E(1:3,1:3) = R;
+		E(1:3,4) = R * [x y z]';
+        model.bodies{end}.setInitTransform(E*meshShape.E_oi);
+
+		model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
+		model.bodies{end}.collide = true;
+		model.bodies{end}.mu = mu;
+		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+        %R = se3.aaToMat([0 0 1], 0.0);
+        R = se3.aaToMat([0 0 1],0);
+		E = eye(4);
+		x = -1;
+		y = 0.0 * w * (i-2);
+		%z = (i-0.5 + i *0.0)*w;
+        z = 1.0 * w;
+        E(1:3,1:3) = R;
+		E(1:3,4) = R * [x y z]';
+        model.bodies{end}.setInitTransform(E);
 end
 
 end

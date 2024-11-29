@@ -140,7 +140,7 @@ classdef Model < handle
                     this.collider.collisions{j}.initConstraints(this.h, this.hs);
                 end
             end
-            %this.draw();
+            this.draw();
             
             if(this.solverType > 1)
                 % Shock Propagation
