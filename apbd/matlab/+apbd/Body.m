@@ -24,6 +24,7 @@ classdef (Abstract) Body < handle
 		index    % Body index
         layer    % Which contact layer this body is
         neighbors % Indices for neighobor bodies
+        collisions
     end
 
 	%%
@@ -43,6 +44,7 @@ classdef (Abstract) Body < handle
 			this.index = apbd.Model.countB();
             this.layer = 99;
             this.neighbors = [];
+            this.collisions= [];
 		end
 
 		%%

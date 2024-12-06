@@ -22,12 +22,14 @@ classdef Collider < handle
             this.activeCollisions = [];
             this.groundBodyIndex = [];
 			this.collisions = cell(1,(this.bodyNum+1)*this.bodyNum/2);
+            groundBody = apbd.BodyRigid(apbd.ShapeCuboid([1 1 0.1]),Inf);
+            groundBody.layer = 0;
             for i = 1 : this.bodyNum
                 for j = i : this.bodyNum
                     index = (2*this.bodyNum+2-i)*(i-1)/2 + j - i + 1;
                     %disp(index);
                     if i == 1
-                        this.collisions{index} = Collision(model.bodies{j}, model.bodies{j}, true);
+                        this.collisions{index} = Collision(model.bodies{j}, groundBody, true);
                     else
                         this.collisions{index} = Collision(model.bodies{i-1}, model.bodies{j}, false);
                     end
@@ -65,12 +67,25 @@ classdef Collider < handle
                 end
             end
 
-            conLayers = arrayfun(@(conIndex) this.collisions{conIndex}.body1.layer + this.collisions{conIndex}.body2.layer, this.activeCollisions);
+            %conLayers = arrayfun(@(conIndex) this.collisions{conIndex}.body1.layer + this.collisions{conIndex}.body2.layer, this.activeCollisions);
+            conLayers = zeros(length(this.activeCollisions),1);
+            for i = 1:length(this.activeCollisions)
+                conIndex = this.activeCollisions(i);
+                this.collisions{conIndex}.layer = this.collisions{conIndex}.body1.layer + this.collisions{conIndex}.body2.layer;
+                conLayers(i) = this.collisions{conIndex}.layer;
+            end
+
+            for i = 1 : length(this.model.bodies)
+                indices = find(ismember(this.activeCollisions, this.model.bodies{i}.collisions));
+                [~, order] = sort(conLayers(indices));
+                this.model.bodies{i}.collisions = this.model.bodies{i}.collisions(order);
+            end
+
             %[~, idx] = sort(conLayers);
             layers = unique(conLayers);
             sortedCollisions = {};
-            for layer = layers
-                sortedCollisions{end+1} = this.activeCollisions(conLayers==layer);
+            for i = 1:length(layers)
+                sortedCollisions{end+1} = this.activeCollisions(conLayers==layers(i));
             end
             this.activeCollisions = sortedCollisions;
         end
@@ -117,7 +132,8 @@ classdef Collider < handle
                     this.groundBodyIndex(end+1) = body.index;
                     body.layer = 1;
                     this.activeCollisions(end+1) = body.index;
-                    this.collisions{body.index}.broken = false;
+                    this.collisions{body.index}.broken = true;
+                    body.collisions(end+1) = body.index;
                 end
             end
 
@@ -132,12 +148,16 @@ classdef Collider < handle
 				    cdata = body1.narrowphaseRigid(body2);
                     this.collisions{index}.setContacts(cdata);
                 end
+                this.collisions{index}.body1 = body1;
+                this.collisions{index}.body2 = body2;
                 this.collisions{index}.getConstraints();
                 if(this.collisions{index}.contactNum ~= 0)
                     body1.neighbors(end+1) = body2.index;
                     body2.neighbors(end+1) = body1.index;
                     this.activeCollisions(end+1) = index;
-                    this.collisions{index}.broken = false;
+                    this.collisions{index}.broken = true;
+                    body1.collisions(end+1) = index;
+                    body2.collisions(end+1) = index;
                 end
             end
         end

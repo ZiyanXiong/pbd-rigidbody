@@ -779,7 +779,7 @@ switch(modelID)
 			x = 0 * w * (i-1);
 			y = 0.75 * w * (i-2);
 			%z = (i-0.5 + i *0.0)*w;
-            z = -0.2 * w;
+            z = -0.15 * w;
             E(1:3,1:3) = R;
 			E(1:3,4) = R * [x y z]';
 			model.bodies{end}.setInitTransform(E*meshShape.E_oi);
@@ -787,7 +787,7 @@ switch(modelID)
                 %model.bodies{end}.setInitVelocity([0 0 0 1 0 0]');
             end
         end
-
+        
 		model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
 		model.bodies{end}.collide = true;
 		model.bodies{end}.mu = mu;
@@ -795,14 +795,15 @@ switch(modelID)
         %R = se3.aaToMat([0 0 1], 0.0);
         R = se3.aaToMat([0 0 1],angle);
 		E = eye(4);
-		x = -1.25;
+		x = -1;
 		y = -0.75;
 		%z = (i-0.5 + i *0.0)*w;
-        z = -0.2 * w;
+        z = -0.15 * w;
         E(1:3,1:3) = R;
 		E(1:3,4) = R * [x y z]';
         model.bodies{end}.setInitTransform(E*meshShape.E_oi);
 
+        
 		model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
 		model.bodies{end}.collide = true;
 		model.bodies{end}.mu = mu;
@@ -810,13 +811,192 @@ switch(modelID)
         %R = se3.aaToMat([0 0 1], 0.0);
         R = se3.aaToMat([0 0 1],0);
 		E = eye(4);
-		x = -1;
+		x = -0.5;
 		y = 0.0 * w * (i-2);
 		%z = (i-0.5 + i *0.0)*w;
-        z = 1.0 * w;
+        z = 1.25 * w;
         E(1:3,1:3) = R;
 		E(1:3,4) = R * [x y z]';
         model.bodies{end}.setInitTransform(E);
+    	case 19
+		model.name = 'Stacking: Cube Mesh';
+		model.plotH = false;
+		model.tEnd = 1;
+		model.h = h;
+		model.substeps = substeps;
+		model.iters = substeps;
+        %model.itersSP = 30;
+		density = 1.0;
+		w = 2;
+		sides = [w w w];
+		model.grav = [0 0 -980]';
+		model.ground.E = eye(4);
+		mu = 0.5;
+
+		model.ground.size = 20;
+		model.axis = 2*w*[-1 1 -1 1 0 1];
+		model.drawHz = 1000;
+
+		model.view = [0 0];
+
+		angle = -90*pi/180;
+        meshShape = apbd.ShapeMeshObj('./ShapeFiles/cube.obj');
+        meshShape.computeInertia(density);
+		n = 2;
+		for i = 1 : n
+			model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+    		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+            %R = se3.aaToMat([0 0 1], 0.0);
+            R = se3.aaToMat([0 0 1],angle);
+			E = eye(4);
+			x = 0 * w * (i-1);
+			y = 1.25 * w * (i-2);
+			%z = (i-0.5 + i *0.0)*w;
+            z = -0.0 * w;
+            E(1:3,1:3) = R;
+			E(1:3,4) = R * [x y z]';
+			model.bodies{end}.setInitTransform(E*meshShape.E_oi);
+            if i == 2
+                %model.bodies{end}.setInitVelocity([0 0 0 1 0 0]');
+            end
+        end
+        
+		model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
+		model.bodies{end}.collide = true;
+		model.bodies{end}.mu = mu;
+		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+        %R = se3.aaToMat([0 0 1], 0.0);
+        R = se3.aaToMat([0 0 1],angle);
+		E = eye(4);
+		x = -2.1;
+		y = -1.25;
+		%z = (i-0.5 + i *0.0)*w;
+        z = -0.0 * w;
+        E(1:3,1:3) = R;
+		E(1:3,4) = R * [x y z]';
+        model.bodies{end}.setInitTransform(E*meshShape.E_oi);
+        
+		model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
+		model.bodies{end}.collide = true;
+		model.bodies{end}.mu = mu;
+		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+        %R = se3.aaToMat([0 0 1], 0.0);
+        R = se3.aaToMat([0 0 1],0);
+		E = eye(4);
+		x = -1.25;
+		y = 1;
+		%z = (i-0.5 + i *0.0)*w;
+        z = 1.51 * w;
+        E(1:3,1:3) = R;
+		E(1:3,4) = R * [x y z]';
+        model.bodies{end}.setInitTransform(E);
+        case 20
+		model.name = 'Stacking: Catenary';
+		model.plotH = false;
+		model.tEnd = 5;
+		model.h = h;
+		model.substeps = substeps;
+		model.iters = substeps;
+        %model.itersSP = 3;
+		density = 1.0;
+		w = 3;
+		
+		model.grav = [0 0 -981]';
+		model.ground.E = eye(4);
+		mu = 0.9;
+
+		model.ground.size = 10;
+		model.axis = 20*[-1 1 -1 1 0 2.5];
+		model.drawHz = 60;
+
+		model.view = [0 0];
+
+        a = 6.4;
+		n = 9;
+
+        xs = [-15 -12 -9 -5 0 5 9 12 15];
+        halfAngles = [7.5 2.5 5 20 20 20 5 2.5 7.5] ./ 180 * pi;
+        %halfAngles = ones(9,1) * (10/180) * pi;
+        halfDistances = [1.1 0.7 0.5 0.5 0.3 0.5 0.5 0.7 1.1]* w;
+        centers = zeros(3,n);
+        lengths = zeros(n,1);
+        heights = [w*1.6 w*1.5 w*1.2 w*0.8 w*0.6 w*0.8 w*1.2 w*1.5 w*1.6];
+        densities = [0.1 0.2 0.4 0.6 1 0.6 0.4 0.2 0.1];
+        %densities = ones(9,1);
+        theta = 0;
+        for i = 1:n
+            centers(1,i) = xs(i);
+            centers(2,i) = 0;
+            centers(3,i) = 35-(a*cosh(centers(1,i)/a)-a);      
+            if(i==1)
+                lengths(i) = 2*(centers(3,i) - halfDistances(i) * cos(halfAngles(i)));
+            else
+                lengths(i) = 2*(abs((centers(:,i) - centers(:,i-1))'*[cos(pi/2 - theta) 0 sin(pi/2 - theta)]') - lengths(i-1)/2 ...
+                    - halfDistances(i-1) * cos(halfAngles(i-1)) - halfDistances(i)* cos(halfAngles(i)));
+            end
+            theta = theta + 2*halfAngles(i);  
+        end
+        lengths(5) = lengths(5);
+        theta = pi/2;
+		for i = 1 : n
+            sides = [lengths(i) w heights(i)];
+            model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, halfDistances(i), halfAngles(i)),densities(i));
+            %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+            
+		    R = se3.aaToMat([0 1 0], theta + halfAngles(i));
+			E = eye(4);
+            E(1:3,1:3) = R;
+			E(1:3,4) = centers(:,i);
+			model.bodies{end}.setInitTransform(E);
+            theta = theta + 2*halfAngles(i);
+        end 
+    	case 21
+		model.name = 'Two Cuboid Rigid Collisions : small arch';
+		model.plotH = false;
+		model.tEnd = 5;
+		model.h = h;
+		model.substeps = substeps;
+		model.iters = 1;
+        %model.itersSP = 3;
+		density = 1.0;
+		w = 3;
+		sides = [w w w];
+		model.grav = [0 0 -981]';
+		model.ground.E = eye(4);
+		mu = 1.0;
+
+		model.ground.size = 10;
+		model.axis = 20*[-1 1 -1 1 0 1];
+		model.drawHz = 60;
+
+		model.view = [0 0];
+
+		n = 10;
+        halfAngle = 0.5 * pi / n;
+        halfDistance = 0.4 * w;
+		for i = 1 : n
+			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, halfDistance, halfAngle),density);
+            %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+			model.bodies{end}.collide = true;
+			model.bodies{end}.mu = mu;
+            theta = (i*2-1)*halfAngle;
+            r = (0.5*w + cos(halfAngle) * halfDistance) / sin(halfAngle);
+    		R = se3.aaToMat([0 1 0], pi/2 + theta);
+			E = eye(4);
+			x = -r * cos(theta);
+			y = 0;
+			z = r*sin(theta);
+            E(1:3,1:3) = R;
+			E(1:3,4) = [x y z]';
+			model.bodies{end}.setInitTransform(E);
+            if i == 1
+                %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
+            end
+        end
 end
 
 end

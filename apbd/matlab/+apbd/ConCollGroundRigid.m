@@ -7,12 +7,14 @@ classdef ConCollGroundRigid < apbd.ConColl
 		xw % collision point wrt world (3x1)
 		vw % collision velocity wrt world (3x1)
 		Eg % ground transformation
+        dt % d/h
 
         contactFrame
         w1   % Generalized mass vector (3x1)
         delLinVel1 % Unit change for linear velocity matrix(3x3)
         angDelta1 % Unit change for angular velocity matrix(3x3)
         raXn  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXnI  % ra X nw * sqrt(I^(-1)) matrix(3x3)
 
         mu
         biasCoefficient
@@ -39,6 +41,7 @@ classdef ConCollGroundRigid < apbd.ConColl
 		%%
 		function init(this, h, hs)
             this.d = this.body.transformPoint(this.xl) - this.xw;
+            this.dt = this.d / h;
             scale = min([0.8 2 * sqrt(hs / h)]);
             if this.nw' * this.d <= 0
                 this.biasCoefficient = -scale / hs;
@@ -58,17 +61,52 @@ classdef ConCollGroundRigid < apbd.ConColl
             for i = 1:3
                 nl1 = se3.qRotInv(q1, this.contactFrame(:,i));
 			    rnl1 = se3.cross(rl1,nl1);
-                raXnI1 = se3.qRot(q1,(sqrt(I1).\rnl1));
-			    this.w1(i) = (1/m1) +raXnI1' * raXnI1;
+                this.raXnI(:,i) = se3.qRot(q1,(sqrt(I1).\rnl1));
+			    this.w1(i) = (1/m1) + this.raXnI(:,i)' * this.raXnI(:,i);
                 this.raXn(:,i) = se3.qRot(q1,rnl1);
                 
                 this.delLinVel1(:,i) = this.contactFrame(:,i) / m1;
                 this.angDelta1(:,i) = se3.qRot(q1,(I1.\rnl1));
             end
+            if isinf(m1)
+                this.w1 = ones(3,1);
+            end
         end
 
         function layer = getLayer(this)
             layer = this.body.layer;
+        end
+
+        %%
+        function C = evalC(this)
+            C = this.nw' * this.body.v + this.raXn(:,1)' * this.body.w + this.nw'* this.dt;
+        end
+
+        %%
+        function Cs = evalCs(this)
+            Cs = this.contactFrame' * this.body.v + this.raXn' * this.body.w + this.contactFrame'* this.dt;
+        end
+
+        %%
+        function applyLambda(this, dlambdas)
+            %{
+            lambdas = this.lambda + dlambdas;
+            if(lambdas(1) < 0)
+                dlambdas(1) = - this.lambda(1);
+                this.collision.broken = true;
+            end
+
+            lambdas = this.lambda + dlambdas;
+            frictionRadius = this.mu * lambdas(1);
+            if(norm(lambdas(2:3)) > frictionRadius)
+                lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
+                dlambdas = lambdas - this.lambda; 
+                this.collision.broken = true;
+            end
+            %}
+            this.lambda = this.lambda + dlambdas;
+            this.body.v = this.body.v + this.delLinVel1 * dlambdas;
+            this.body.w = this.body.w + this.angDelta1 * dlambdas;
         end
 
 		%%
@@ -116,6 +154,7 @@ classdef ConCollGroundRigid < apbd.ConColl
         %%
         function applyLambdaSP(this)
         end
+
 		%%
 		function draw(this)
 			x = this.body.transformPoint(this.xl);

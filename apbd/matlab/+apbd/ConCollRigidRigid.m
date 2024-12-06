@@ -6,17 +6,24 @@ classdef ConCollRigidRigid < apbd.ConColl
 		body2
 		x1 % Position wrt body 1 (3x1)
 		x2 % Position wrt body 2 (3x1)
+        dt % d/h
 
         contactFrame
         w1   % Generalized mass vector (3x1)
         delLinVel1 % Unit change for linear velocity matrix(3x3)
         angDelta1 % Unit change for angular velocity matrix(3x3)
         raXn1  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXnI1  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXnISP1  % ra X nw * sqrt(I^(-1)) matrix(3x3)
 
         w2   % Generalized mass vector (3x1)
         delLinVel2 % Unit change for linear velocity matrix(3x3)
         angDelta2 % Unit change for angular velocity matrix(3x3)
         raXn2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXnI2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXnISP2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+
+        linearMSP
 
         mu
         biasCoefficient
@@ -63,6 +70,7 @@ classdef ConCollRigidRigid < apbd.ConColl
             % Now we can assume body1 is always above body2
 
             this.d = this.body1.transformPoint(this.x1) - this.body2.transformPoint(this.x2);
+            this.dt = this.d / h;
             scale = min([0.8 2 * sqrt(hs / h)]);
             if this.nw' * this.d <= 0
                 this.biasCoefficient = -scale / hs;
@@ -84,29 +92,91 @@ classdef ConCollRigidRigid < apbd.ConColl
 			I2 = this.body2.Mr;
 			q2 = this.body2.x0(1:4);
 			rl2 = this.x2;
-
+            
             for i = 1:3
                 nl1 = se3.qRotInv(q1, this.contactFrame(:,i));
 			    rnl1 = se3.cross(rl1,nl1);
-                raXnI1 = se3.qRot(q1,(sqrt(I1).\rnl1));
+                this.raXnI1(:,i) = se3.qRot(q1,(sqrt(I1).\rnl1));
                 this.raXn1(:,i) = se3.qRot(q1,rnl1);
-			    this.w1(i) = (1/m1) + raXnI1' * raXnI1;
+			    this.w1(i) = (1/m1) + this.raXnI1(:,i)' * this.raXnI1(:,i);
                 this.delLinVel1(:,i) = this.contactFrame(:,i) / m1;
                 this.angDelta1(:,i) = se3.qRot(q1,(I1.\rnl1));
-    
+
                 nl2 = se3.qRotInv(q2, this.contactFrame(:,i));
                 rnl2 = se3.cross(rl2,nl2);
-                raXnI2 = se3.qRot(q2,(sqrt(I2).\rnl2));
+                this.raXnI2(:,i) = se3.qRot(q2,(sqrt(I2).\rnl2));
                 this.raXn2(:,i) = se3.qRot(q2,rnl2);
-			    this.w2(i) = (1/m2) + raXnI2' * raXnI2;
+			    this.w2(i) = (1/m2) + this.raXnI2(:,i)' * this.raXnI2(:,i);
                 this.delLinVel2(:,i) = this.contactFrame(:,i) / m2;
                 this.angDelta2(:,i) = se3.qRot(q2,(I2.\rnl2));
             end
+
+            n_ground = [0 0 1]';
+            n_r_ground = [1 0 0]';
+            for i = 1:3
+                ngl1 = se3.qRotInv(q1, n_ground);
+                nl1 = se3.qRotInv(q1, this.contactFrame(:,i));
+                nl1 = nl1 - (nl1'*ngl1) * ngl1;
+                %nl1 = nl1 ./ norm(nl1);
+			    rnl1 = se3.cross(rl1,nl1);
+                this.raXnISP1(:,i) = se3.qRot(q1,(sqrt(I1).\rnl1));
+
+                ngl2 = se3.qRotInv(q2, n_r_ground);
+                nl2 = se3.qRotInv(q2, this.contactFrame(:,i));
+                rnl2 = se3.cross(rl2,nl2);
+                rnl2 = rnl2 - (rnl2'*ngl2) * ngl2;
+                this.raXnISP2(:,i) = se3.qRot(q2,(sqrt(I2).\rnl2));
+            end
+
+            contactFrameSP = zeros(3,3);
+            for i = 1:3
+                contactFrameSP(:,i) = this.contactFrame(:,i) - (this.contactFrame(:,i)'*n_ground) * n_ground;
+                %contactFrameSP(:,i) = contactFrameSP(:,i) ./ norm(contactFrameSP(:,i));
+            end
+            this.linearMSP = contactFrameSP' * contactFrameSP;
         end
 
         %%
         function layer = getLayer(this)
             layer = this.body1.layer + this.body2.layer;
+        end
+
+        %%
+        function C = evalC(this)
+                C = this.nw' * (this.body1.v - this.body2.v) + this.raXn1(:,1)' * this.body1.w - this.raXn2(:,1)' * this.body2.w + this.nw'* this.dt;
+        end
+        %%
+        function Cs = evalCs(this)
+                Cs = this.contactFrame' * (this.body1.v - this.body2.v) + this.raXn1' * this.body1.w - this.raXn2' * this.body2.w + this.contactFrame'* this.dt;
+        end
+
+        %%
+        function Cs = evalCsp(this)
+            Cs = this.contactFrame' * this.body1.v + this.raXn1' * this.body1.w + this.contactFrame'* this.dt;
+        end
+
+        %%
+        function applyLambda(this, dlambdas)
+            %{
+            lambdas = this.lambda + dlambdas;
+            if(lambdas(1) < 0)
+                dlambdas(1) = - this.lambda(1);
+                this.collision.broken = true;
+            end
+            lambdas = this.lambda + dlambdas;
+
+            frictionRadius = this.mu * lambdas(1);
+            if(norm(lambdas(2:3)) > frictionRadius)
+                lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
+                dlambdas = lambdas - this.lambda; 
+                this.collision.broken = true;
+            end
+            %}
+            this.lambda = this.lambda + dlambdas;
+            this.body1.v = this.body1.v +  this.delLinVel1 * dlambdas;
+            this.body1.w = this.body1.w +  this.angDelta1 * dlambdas;
+            this.body2.v = this.body2.v - this.delLinVel2 * dlambdas;
+            this.body2.w = this.body2.w - this.angDelta2 * dlambdas;
         end
 
 		%%
@@ -120,6 +190,7 @@ classdef ConCollRigidRigid < apbd.ConColl
                 normalVel = this.nw .* this.body1.v + this.body1.w .* this.raXn1(:,1);
                 normalVel = normalVel - (this.nw .* this.body2.v + this.body2.w .* this.raXn2(:,1));
                 this.dlambdaNor =  bias / (this.w1(1) + this.w2(1)) - sum(normalVel) / (this.w1(1) + this.w2(1));
+                %this.dlambdaNor =  bias / (this.w1(1) + this.w2(1)) - sum(normalVel) / (this.w1(1));
                 lambda = this.lambda(1) + this.dlambdaNor;
                 if(lambda < 0)
                     this.dlambdaNor = - this.lambda(1);
@@ -132,6 +203,7 @@ classdef ConCollRigidRigid < apbd.ConColl
                 this.body2.w = this.body2.w - this.dlambdaNor * this.angDelta2(:,1);
             else
                 sep = this.nw' * this.body1.deltaLinDt + this.raXn1(:,1)' * this.body1.deltaAngDt + this.nw' * this.d;
+                sep = sep - (this.nw' * this.body2.deltaLinDt + this.raXn2(:,1)' * this.body2.deltaAngDt);
                 sep = max(minpenetration,sep);
                 bias = sep * this.biasCoefficient;
                 %normalVel = this.nw' * this.body.computePointVel(this.xl);
@@ -182,6 +254,7 @@ classdef ConCollRigidRigid < apbd.ConColl
                 for i = 2:3
                     %sep = this.contactFrame(:,i)' * this.body1.deltaLinDt + this.raXnI1(:,i)' * this.body1.deltaAngDt;
                     sep = this.contactFrame(:,i)' * this.body1.deltaLinDt + this.raXn1(:,i)' * this.body1.deltaAngDt + this.contactFrame(:,i)' * this.d;
+                    sep = sep - (this.contactFrame(:,i)' * this.body2.deltaLinDt + this.raXn2(:,i)' * this.body2.deltaAngDt);
                     bias = sep * this.biasCoefficient;
                     normalVel = this.contactFrame(:,i) .* this.body1.v + this.body1.w .* this.raXn1(:,i);
                     dlambdaTan(i-1) =  (bias / (this.w1(i)) - sum(normalVel) / (this.w1(i)))*0.8;
@@ -205,8 +278,9 @@ classdef ConCollRigidRigid < apbd.ConColl
 
         %%
         function applyLambdaSP(this)
-                this.body2.v = this.body2.v - this.delLinVel2 * this.dlambdaSP;
-                this.body2.w = this.body2.w - this.angDelta2 * this.dlambdaSP;
+            this.body2.v = this.body2.v - this.delLinVel2 * this.dlambdaSP;
+            this.body2.w = this.body2.w - this.angDelta2 * this.dlambdaSP;
+            this.dlambdaSP = zeros(3,1);
         end
 
 		%%

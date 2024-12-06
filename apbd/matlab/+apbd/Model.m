@@ -112,7 +112,8 @@ classdef Model < handle
                 if this.k == 4
                     %fprintf("Pause.");
                 end
-                this.solveConTGS();
+                %this.solveConTGS();
+                this.solveCon();
 				this.k = this.k + 1;
 				this.computeEnergies();
 				%this.draw();
@@ -223,6 +224,203 @@ classdef Model < handle
             
         end
 
+
+		%%
+        function solveCon(this)
+            this.collider.run();
+
+            for i = 1 : length(this.collider.activeCollisions)
+                for j = this.collider.activeCollisions{i}
+                    this.collider.collisions{j}.initConstraints(this.h, this.hs);
+                end
+            end
+            this.draw();
+
+			this.stepBDF1();
+            for iter = 1 : this.iters
+			    %this.draw();
+			    %fprintf('substep %d\n',this.ks);
+                for i = 1 : length(this.constraints)
+				    this.constraints{i}.clear();
+                end
+
+				%fprintf('  iter %d\n',iter);
+				% Clear the Jacobi updates
+				for i = 1 : length(this.bodies)
+					this.bodies{i}.clearJacobi();
+				end
+				% Gauss-Seidel solve for non-collision constraints
+                for j = 1 : length(this.constraints)
+					this.constraints{j}.solve();
+                end
+				% Solve all collision normals at the position level
+				%fprintf('    ');
+    			%this.collider.run();
+
+                n = 1;
+                ci = 1;
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        this.collider.collisions{j}.index = ci;
+                        this.collider.collisions{j}.mIndces = n : n - 1 + this.collider.collisions{j}.contactNum * 3;
+                        n = n + this.collider.collisions{j}.contactNum * 3;
+                        this.collider.collisions{j}.computeJ_b();
+                        ci = ci + 1;
+                    end
+                end
+
+                n = n-1;
+                A = zeros(n,n);
+                Asp = zeros(n,n);
+                b = zeros(n,1);
+                blocks = {};
+                % GP
+                for i = 1 : length(this.bodies)
+                    for j = 1 : length(this.bodies{i}.collisions)
+                        cj = this.bodies{i}.collisions(j);
+                        this.collider.collisions{cj}.nextColl = [];
+                        for k = j + 1 : length(this.bodies{i}.collisions)
+                            ck = this.bodies{i}.collisions(k);
+                            this.collider.collisions{cj}.nextColl(end+1) = ck;
+                            rows = this.collider.collisions{cj}.mIndces;
+                            cols = this.collider.collisions{ck}.mIndces;
+                            if(this.collider.collisions{cj}.layer == this.collider.collisions{ck}.layer)
+                                A(rows,cols) = this.collider.collisions{cj}.J1I * this.collider.collisions{ck}.J1I';
+                                %Asp(cols,rows) = A(rows,cols)';
+                            else
+                                A(rows,cols) = this.collider.collisions{cj}.J1I * this.collider.collisions{ck}.J2I';
+                            end
+                            Asp(rows,cols) = A(rows,cols);
+                            A(cols,rows) = A(rows,cols)';
+                        end
+                    end
+                end
+
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        inds = this.collider.collisions{j}.mIndces;
+                        A(inds,inds) = this.collider.collisions{j}.J1I * this.collider.collisions{j}.J1I' + this.collider.collisions{j}.J2I * this.collider.collisions{j}.J2I';
+                        Asp(inds,inds) = this.collider.collisions{j}.J1I * this.collider.collisions{j}.J1I';
+                        %Asp(inds,inds) = A(inds,inds);
+                        b(inds) = this.collider.collisions{j}.b;
+                        blocks{end+1} = inds;
+                    end
+                end
+
+                L = zeros(n,6*length(this.bodies));
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        rows = this.collider.collisions{j}.mIndces;
+                        if(this.collider.collisions{j}.ground)
+                            cols =  (this.collider.collisions{j}.body1.index - 1) * 6 + 1 : this.collider.collisions{j}.body1.index * 6;
+                            L(rows,cols) = this.collider.collisions{j}.J1I;
+                        else
+                            cols =  (this.collider.collisions{j}.body1.index - 1) * 6 + 1 : this.collider.collisions{j}.body1.index * 6;
+                            L(rows,cols) = this.collider.collisions{j}.J1I;
+                            cols =  (this.collider.collisions{j}.body2.index - 1) * 6 + 1 : this.collider.collisions{j}.body2.index * 6;
+                            L(rows,cols) = this.collider.collisions{j}.J2I;
+                        end
+                    end
+                end
+                A = L*L';
+                Lsp = L;
+                blocks = {};
+                for i = 1 : length(this.collider.activeCollisions)
+                    inds = [];
+                    for j = this.collider.activeCollisions{i}
+                        rows = this.collider.collisions{j}.mIndces;
+                        inds = [inds, rows];
+                        if(~this.collider.collisions{j}.ground && mod(this.collider.collisions{j}.layer,2) == 1)
+                            cols =  (this.collider.collisions{j}.body2.index - 1) * 6 + 1 : this.collider.collisions{j}.body2.index * 6;
+                            Lsp(rows,cols) = 0;
+                        end
+                    end
+                    if(~isempty(inds)&& mod(this.collider.collisions{j}.layer,2) == 0)
+                        blocks{end} = [blocks{end}, inds];
+                    else
+                        blocks{end+1} = inds;
+                    end
+                end
+                Asp = L * Lsp';
+                %{
+                Aspinv = Asp;
+                for i = 2:5
+                    Aspinv(blocks{i},blocks{i})= A(blocks{i},blocks{i}) - A(blocks{i-1},blocks{i})' * pinv(Aspinv(blocks{i-1},blocks{i-1})) *  A(blocks{i-1},blocks{i});
+                end
+                %}
+
+
+                mu = this.bodies{1}.mu;
+                itermax = 1000;
+                
+                clf;
+                solver = ConstraintSolver(itermax,1e-6);
+                lambdas = solver.Gauss_Sidiel(A, b, mu);
+                solver.draw('Gauss-Seidel');
+                
+                load('SP_allproj.mat');
+                solver = ConstraintSolver(itermax,1e-6);
+                lambdas = solver.Gauss_Sidiel(A, b, mu, lambdas);
+                solver.draw('Gauss-Seidel with SP warm start (projection on noraml and tangent dirctions)');
+
+                load('SP_norproj.mat');
+                solver = ConstraintSolver(itermax,1e-6);
+                lambdafull = zeros(length(b),1);
+                lambdafull(1:3:end) = lambdas;
+                lambdas = solver.Gauss_Sidiel(A, b, mu, lambdafull);
+                solver.draw('Gauss-Seidel with SP warm start (projection on noraml direction)');
+
+                load('SP_noproj.mat');
+                solver = ConstraintSolver(itermax,1e-6);
+                lambdas = solver.Gauss_Sidiel(A, b, mu, lambdas);
+                solver.draw('Gauss-Seidel with SP warm start (No projection)');
+                %}
+
+                %lambdas = solver.Chel(A, b, mu);
+                %solver.draw('Chel');
+                %lambdas = solver.Shock_Propagation(A, b, Asp, blocks, mu);
+                %solver.draw('Shock-Propagation');
+                %save('SP_norproj.mat', "lambdas");
+                %lambdas = solver.Preconditioned_Conjugate_Gradient(A, b, Asp, mu);
+                %solver.draw('Preconditioned-Conjugate-Gradient');
+                %lambdas = solver.Conjugate_Gradient(A, b, mu);
+                %solver.draw('Conjugate-Gradient');
+                %lambdas = solver.Mix_GS_CG(A, b, mu);
+                %solver.draw('Mixing Gauss-Seidel and Conjugate-Gradient');
+                legend
+                xlabel('Iteration number') 
+                ylabel('Error') 
+                title('Gauss-Seidel solver for arch scene with different warm start')
+                %save('arch.mat',"A","b");
+                
+                solver = ConstraintSolver(itermax,1e-6);
+                lambdas = solver.Gauss_Sidiel(A, b, mu);
+                %lambdas = solver.Shock_Propagation(A, b, Asp, blocks, mu);
+                lambdas = pinv(A)*b;
+                %lambdas(1:end) = 0;
+                
+                for i = 1 : length(this.collider.activeCollisions)
+                    for j = this.collider.activeCollisions{i}
+                        l = this.collider.collisions{j}.contactNum*3 - 1;
+                        start = this.collider.collisions{j}.mIndces(1);
+                        lambdai = lambdas(start:start+l);
+                        for k = 1: this.collider.collisions{j}.contactNum
+                            this.collider.collisions{j}.constraints{k}.applyLambda(lambdai(3*(k-1) + 1: 3*k));
+                        end
+                    end
+                end
+
+                for i = 1 : length(this.bodies)
+                    this.bodies{i}.updateStatesDirect(this.h);
+                end
+            end
+
+			this.t = this.t + this.h;
+            for i = 1 : length(this.bodies)
+                this.bodies{i}.integrateStates();
+            end
+
+        end
         %%
         function dfdp = backward(this)
             x_target = [0 0 0 1 0 0 0]';

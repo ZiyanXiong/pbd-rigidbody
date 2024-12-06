@@ -96,6 +96,32 @@ classdef BodyRigid < apbd.Body
         end
 
         %%
+        function updateStatesDirect(this, h)
+			%q = this.x0(1:4);
+            %R = se3.qToMat(q);
+            %invsqrtI = R * diag(sqrt(1./this.Mr)) * R';
+            %angularMotionVel = invsqrtI * this.w;
+            angularMotionVel = this.w;
+            wNorm =  norm(angularMotionVel);
+            this.deltaBody2Worldq = zeros(4,1);
+            this.deltaBody2Worldq(4) = 1;
+            if(wNorm>1e-9)
+                halfWDt = 0.5 * wNorm * h;
+                dq = [angularMotionVel * sin(halfWDt)/ wNorm; 0];
+                result = se3.qMul(dq, this.deltaBody2Worldq);
+                result = result + this.deltaBody2Worldq * cos(halfWDt);
+                this.deltaBody2Worldq = result / norm(result);
+            end
+            this.deltaBody2Worldp =  this.v * h;
+
+            this.deltaAngDt =  this.w * h;
+            this.deltaLinDt =  this.v * h;
+
+            this.x(1:4) = se3.qMul(this.deltaBody2Worldq, this.x0(1:4));
+            this.x(5:7) = this.x0(5:7) + this.deltaBody2Worldp;
+        end
+
+        %%
         function integrateStates(this)
 			%q = this.x0(1:4);
             %R = se3.qToMat(q);
@@ -113,6 +139,7 @@ classdef BodyRigid < apbd.Body
             %Clear contact information
             this.layer = 99;
             this.neighbors = [];
+            this.collisions = [];
         end
 
 		%%
