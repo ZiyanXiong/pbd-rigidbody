@@ -308,6 +308,8 @@ classdef Model < handle
                 end
 
                 L = zeros(n,6*length(this.bodies));
+                K = L;
+                M = zeros(6*length(this.bodies));
                 for i = 1 : length(this.collider.activeCollisions)
                     for j = this.collider.activeCollisions{i}
                         rows = this.collider.collisions{j}.mIndces;
@@ -322,6 +324,17 @@ classdef Model < handle
                         end
                     end
                 end
+                for i = 1:length(this.bodies)
+                    inds = (this.bodies{i}.index - 1) * 6 + 1 : this.bodies{i}.index * 6;
+                    I = zeros(6,1);
+                    I(1:3) = this.bodies{i}.Mr;
+                    I(4:6) = this.bodies{i}.Mp;
+                    M(inds,inds) = diag(sqrt(I));
+                end
+                K = L*M;
+                M = M*M;
+                M = diag(1./diag(M));
+
                 A = L*L';
                 Lsp = L;
                 blocks = {};
@@ -341,7 +354,20 @@ classdef Model < handle
                         blocks{end+1} = inds;
                     end
                 end
+                
                 Asp = L * Lsp';
+                %{
+                blocks{4} = [blocks{4}, blocks{5}];
+                blocks{5} = [];
+                Asp(73:end,97:end) = A(73:end,97:end);
+                %}
+                %{
+                blocks = {};
+                blocks{1} = 1:12;
+                blocks{2} = 13:120;
+                Asp(13:120,25:120) = A(13:120,25:120);
+                %}
+
                 %{
                 Aspinv = Asp;
                 for i = 2:5
@@ -349,35 +375,34 @@ classdef Model < handle
                 end
                 %}
 
+                %{
+                save('MatrixA_b_K_M_with_friction.mat',"A","b","K","M");
+                A = A(1:3:end,1:3:end);
+                b = b(1:3:end);
+                K = K(1:3:end,:);
+                save('MatrixA_b__K_M_without_friction.mat',"A","b","K","M");
+                %}
+
+                %A = A(1:3:end,1:3:end);
+                %b = b(1:3:end);
 
                 mu = this.bodies{1}.mu;
                 itermax = 1000;
-                
+                %{
                 clf;
                 solver = ConstraintSolver(itermax,1e-6);
                 lambdas = solver.Gauss_Sidiel(A, b, mu);
                 solver.draw('Gauss-Seidel');
-                
-                load('SP_allproj.mat');
-                solver = ConstraintSolver(itermax,1e-6);
-                lambdas = solver.Gauss_Sidiel(A, b, mu, lambdas);
-                solver.draw('Gauss-Seidel with SP warm start (projection on noraml and tangent dirctions)');
+                lambdas = solver.GPQP_Warmstarted_GS(A, b, mu);
+                solver.draw('GPQP Warmstarted GS');
+                lambdas = solver.Mix_GPQP_GS(A, b, mu);
+                solver.draw('Mixing GPQP and GS');
+                %lambdas = solver.Semidefinite_Programming(L, b, mu);
+                %lambdas = solver.Staggered(A, b, mu);
+                %solver.draw('Staggered');
 
-                load('SP_norproj.mat');
-                solver = ConstraintSolver(itermax,1e-6);
-                lambdafull = zeros(length(b),1);
-                lambdafull(1:3:end) = lambdas;
-                lambdas = solver.Gauss_Sidiel(A, b, mu, lambdafull);
-                solver.draw('Gauss-Seidel with SP warm start (projection on noraml direction)');
+                %lambdas = solver.SOCP(L, b, mu);
 
-                load('SP_noproj.mat');
-                solver = ConstraintSolver(itermax,1e-6);
-                lambdas = solver.Gauss_Sidiel(A, b, mu, lambdas);
-                solver.draw('Gauss-Seidel with SP warm start (No projection)');
-                %}
-
-                %lambdas = solver.Chel(A, b, mu);
-                %solver.draw('Chel');
                 %lambdas = solver.Shock_Propagation(A, b, Asp, blocks, mu);
                 %solver.draw('Shock-Propagation');
                 %save('SP_norproj.mat', "lambdas");
@@ -390,13 +415,19 @@ classdef Model < handle
                 legend
                 xlabel('Iteration number') 
                 ylabel('Error') 
-                title('Gauss-Seidel solver for arch scene with different warm start')
+                title('Gauss-Seidel solver for arch scene with different solver')
                 %save('arch.mat',"A","b");
+                %this.save_states(A(1:3:end,1:3:end),b(1:3:end));
+                %}
                 
                 solver = ConstraintSolver(itermax,1e-6);
-                lambdas = solver.Gauss_Sidiel(A, b, mu);
+                %lambdas = solver.Gauss_Sidiel(A, b, mu);
+                %lambdas = solver.SOCP(L, b, mu);
+                lambdas = solver.Cone_GPQP(A, b, mu);
+                %lambdas = solver.GPQP_Warmstarted_GS(A, b, mu);
+                %lambdas = solver.Semidefinite_Programming(L, b, mu);
                 %lambdas = solver.Shock_Propagation(A, b, Asp, blocks, mu);
-                lambdas = pinv(A)*b;
+                %lambdas = pinv(A)*b;
                 %lambdas(1:end) = 0;
                 
                 for i = 1 : length(this.collider.activeCollisions)
@@ -420,6 +451,75 @@ classdef Model < handle
                 this.bodies{i}.integrateStates();
             end
 
+        end
+        %%
+        function save_states(this,A,b)
+            bodyList = {};
+            for i = 1 : length(this.bodies)
+                body.m = this.bodies{i}.Mp;
+                body.I = this.bodies{i}.Mr;
+                bodyList{end+1} = body;
+            end
+            contactList = {};
+
+            for i = 1 : length(this.collider.activeCollisions)
+                for j = this.collider.activeCollisions{i}
+                    for k = 1: this.collider.collisions{j}.contactNum
+                        if(this.collider.collisions{j}.ground)
+                            contact.body1 = this.collider.collisions{j}.constraints{k}.body.index;
+                            contact.body2 = 0;
+                            contact.normal1 = se3.qRotInv(this.collider.collisions{j}.constraints{k}.body.x0(1:4), this.collider.collisions{j}.constraints{k}.nw);
+                            contact.normal2 = [];
+                            contact.r1 = this.collider.collisions{j}.constraints{k}.xl;
+                            contact.r2 = [];
+                        else
+                            contact.body1 = this.collider.collisions{j}.constraints{k}.body1.index;
+                            contact.body2 = this.collider.collisions{j}.constraints{k}.body2.index;
+                            contact.normal1 = se3.qRotInv(this.collider.collisions{j}.constraints{k}.body1.x0(1:4), this.collider.collisions{j}.constraints{k}.nw);
+                            contact.normal2 = se3.qRotInv(this.collider.collisions{j}.constraints{k}.body2.x0(1:4), this.collider.collisions{j}.constraints{k}.nw);
+                            contact.r1 = this.collider.collisions{j}.constraints{k}.x1;
+                            contact.r2 = this.collider.collisions{j}.constraints{k}.x2;
+                        end
+                        contactList{end+1}=contact;
+                    end
+                end
+            end
+            %{
+            n = length(contactList);
+            Afill = zeros(n,n);
+            for i = 1:length(contactList)
+                    body1 = bodyList{contactList{i}.body1};
+                    I1(1:3) = body1.I;
+                    I1(4:6) = body1.m;
+                    I1inv = diag(1./I1);
+               
+                    if(contactList{i}.body2 ~= 0)
+                        body2 = bodyList{contactList{i}.body2};
+                        I2(1:3) = body2.I;
+                        I2(4:6) = body2.m; 
+                        I2inv = diag(1./I2);
+                    end
+            
+                for j = i:length(contactList)
+                    if(contactList{i}.body1 == contactList{j}.body1)
+                        Afill(i,j) = Afill(i,j) + contactList{i}.normal1'*[se3.brac(contactList{i}.r1)', eye(3)] * I1inv *[se3.brac(contactList{j}.r1)', eye(3)]'*contactList{j}.normal1;
+                    end
+                    if(contactList{i}.body1 == contactList{j}.body2)
+                        Afill(i,j) = Afill(i,j) - contactList{i}.normal1'*[se3.brac(contactList{i}.r1)', eye(3)] * I1inv *[se3.brac(contactList{j}.r2)', eye(3)]'*contactList{j}.normal2;
+                    end
+            
+                    if(contactList{i}.body2 ~=0 && contactList{i}.body2 == contactList{j}.body1)
+                        Afill(i,j) = Afill(i,j) - contactList{i}.normal2'*[se3.brac(contactList{i}.r2)', eye(3)] * I2inv *[se3.brac(contactList{j}.r1)', eye(3)]'*contactList{j}.normal1;
+                    end
+                    if(contactList{i}.body2 ~=0 && contactList{i}.body2 == contactList{j}.body2)
+                        Afill(i,j) = Afill(i,j) + contactList{i}.normal2'*[se3.brac(contactList{i}.r2)', eye(3)] * I2inv *[se3.brac(contactList{j}.r2)', eye(3)]'*contactList{j}.normal2;
+                    end
+                end
+            end
+            Afill = Afill + triu(Afill,1)';
+            %}
+            name = split(this.name);
+            save(strcat(name{end}, '_states' ,'.mat'),"A","b","contactList","bodyList");
         end
         %%
         function dfdp = backward(this)

@@ -32,7 +32,7 @@ switch(modelID)
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x = i - 1 + 0.1 * i;
+			x =  0.1 * i;
 			y = 0;
 			z = (i-0.5 + i *0.0)*w;
             %z = 0.5 * w;
@@ -634,7 +634,7 @@ switch(modelID)
 		model.iters = 1;
         %model.itersSP = 30;
 		density = 1.0;
-		w = 1;
+		w = 2;
 		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
@@ -681,68 +681,45 @@ switch(modelID)
 		    model.bodies{end}.setInitTransform(E);
         end
     	case 17
-		model.name = 'Two Cuboid Rigid Collisions : arch';
+		model.name = 'Stacking: 10 mesh rigid bodies with offset';
 		model.plotH = false;
-		model.tEnd = 5;
+		model.tEnd = 1;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
-        %model.itersSP = 3;
+        %model.itersSP = 30;
 		density = 1.0;
-		w = 3;
+		w = 2;
 		sides = [w w w];
-		model.grav = [0 0 -981]';
+		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.9;
+		mu = 0.5;
 
-		model.ground.size = 10;
-		model.axis = 20*[-1 1 -1 1 0 1];
+		model.ground.size = 20;
+		model.axis = 10*[-1 1 -1 1 0 1]*w;
 		model.drawHz = 60;
 
 		model.view = [0 0];
-
+        meshShape = apbd.ShapeMeshObj('./ShapeFiles/cube.obj');
+        meshShape.computeInertia(density);
 		n = 10;
-        halfAngle = (9/180) * pi;
 		for i = 1 : n
-			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4*3, halfAngle),density);
-            %model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+			model.bodies{end+1} = apbd.BodyRigid(meshShape, density);
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
-            theta = (i*2-1)*halfAngle;
-            r = 0.89 / sin(halfAngle) * 3;
-    		R = se3.aaToMat([0 1 0], pi/2 + theta);
+    		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+            R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x = -r * cos(theta);
+			x = 0.04*i*w;
 			y = 0;
-			z = r*sin(theta);
+			z = (i-0.5 + i *0.0)*w;
             E(1:3,1:3) = R;
-			E(1:3,4) = [x y z]';
-			model.bodies{end}.setInitTransform(E);
-            if i == 1
-                %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]', model.h);
-            end
-        end
-        %{
-		for i = 1 : 3
-			%model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeTwoCuboid(sides, sides, 0.4, halfAngle),density);
-            model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-			model.bodies{end}.collide = true;
-			model.bodies{end}.mu = mu;
-			E = eye(4);
-			x = 0.05*i;
-			y = 0;
-			z = (i-0.5)*w+6.3;
-			E(1:3,4) = [x y z]';
+			E(1:3,4) = R * [x y z]';
 			model.bodies{end}.setInitTransform(E);
             if i == 1
                 model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
-        %}
-        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,-0.5,0-0.5]');
-        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,0.5,0-0.5]');
-        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [-0.5,0.5,0-0.5]');
-        %model.constraintList{end+1} = apbd.ConFixLocalPoint(model.bodies{end}, [0.5,-0.5,0-0.5]');
     	case 18
 		model.name = 'Stacking: Mesh';
 		model.plotH = false;
@@ -752,7 +729,7 @@ switch(modelID)
 		model.iters = substeps;
         %model.itersSP = 30;
 		density = 1.0;
-		w = 2;
+		w = 1;
 		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
@@ -955,7 +932,7 @@ switch(modelID)
             theta = theta + 2*halfAngles(i);
         end 
     	case 21
-		model.name = 'Two Cuboid Rigid Collisions : small arch';
+		model.name = 'Stacking : Arch';
 		model.plotH = false;
 		model.tEnd = 5;
 		model.h = h;
@@ -967,7 +944,7 @@ switch(modelID)
 		sides = [w w w];
 		model.grav = [0 0 -981]';
 		model.ground.E = eye(4);
-		mu = 1.0;
+		mu = 0.5;
 
 		model.ground.size = 10;
 		model.axis = 20*[-1 1 -1 1 0 1];
