@@ -52,18 +52,28 @@ CGiterVec = [];
 rs = zeros(iterNum,1);
 
 for iter = 1:iterNum
-    if(iter == 15)
+    if(iter == 3)
         %disp('iter:stop.');
     end
+    
     for i = 1:3:n
         l(i+1) = -mu*x(i);
         u(i+1) = mu*x(i);
         l(i+2) = -mu*x(i);
         u(i+2) = mu*x(i);
     end
-
+    
+    
     %[xc,neqIndex] = computeCauchyPoint(G,c,l,u,x);
     [xc,neqIndex] = computeCauchyPointCone(G,c,l,u,x);
+    %{
+    for i = 1:3:n
+        if(~neqIndex(i))
+            neqIndex(i+1) = false;
+            neqIndex(i+2) = false;
+        end
+    end
+    %}
 
     lNeq = l(neqIndex);
     uNeq = u(neqIndex);
@@ -78,14 +88,14 @@ for iter = 1:iterNum
         cZ = G(neqIndex, ~neqIndex) * xY + c(neqIndex);
     end
 
-    %H = ones(n,1);
+    H = ones(n,1);
     %H = diag(abs(diag(G)));
     %W_zz = Z' * H * Z;
-    H = abs(diag(G));
+    %H = abs(diag(G));
     W_zz = H(neqIndex);
 
     %xZ = pcg_rs(Z' * G * Z, -cZ,eps,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts);
-    [xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,[],CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts);
+    [xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,[],CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex));
     CGiterVec = [CGiterVec, CGiter];
 
     x(~neqIndex) = xc(~neqIndex);
@@ -95,6 +105,16 @@ for iter = 1:iterNum
         if(x(i) < 0)
             x(i) = 0;
         end
+        %{
+        if (abs(x(i+1)) > mu * x(i))
+            scale = mu * x(i) / abs(x(i+1));
+            x(i+1) = scale * x(i+1);
+        end
+        if (abs(x(i+2)) > mu * x(i))
+            scale = mu * x(i) / abs(x(i+2));
+            x(i+2) = scale * x(i+2);
+        end
+        %}
         
         if (norm([x(i+1) x(i+2)]) > mu * x(i))
             scale = mu * x(i) / norm([x(i+1) x(i+2)]);
@@ -142,7 +162,7 @@ output.rs = rs;
 end
 
 %% Preconditioned CG for Reduced Systems (Algorithm 16.1 )
-function [xZ, flag, relres, j, resvec] = pcg_rs(A,b,tol,maxit,M1,~,x0,lReduced,uReduced,projectionOpts)
+function [xZ, flag, relres, j, resvec] = pcg_rs(A,b,tol,maxit,M1,~,x0,lReduced,uReduced,projectionOpts,mindices)
 %M1 is assumed to be a diagnal matrix, so it is represented by a vector
 %inside this function.
 n = size(b,1);
@@ -174,7 +194,23 @@ for j = 1: maxit
     alpha = (rZ' * gZ) / (dZ' * A * dZ);
     xZ_last = xZ;
     xZ = xZ + alpha * dZ;
+    %{
+    feasible = true;
+    for i = 1:length(xZ)
+        if(mod(mindices(i),3)==1 && xZ(i) < 0)
+            feasible = false;
+        end
+        if(mod(mindices(i),3)==2 && norm([xZ(i) xZ(i+1)]) > uReduced(i))
+            feasible = false;
+        end
+    end
 
+    if(~feasible)
+        flag = 1;
+        break;
+    end
+    %}
+    
     % terminate as soon as a bound l ≤ x ≤ u is encountered
     if(sum(xZ < lReduced) > 0  || sum(xZ > uReduced) > 0)
         switch projectionOpts
@@ -199,7 +235,7 @@ for j = 1: maxit
                 error(msg)
         end
     end
-
+    
     rZ_plus = rZ + alpha * A * dZ;
     gZ_plus = M1inv .* rZ_plus;
     beta = (rZ_plus' * gZ_plus) / (rZ' * gZ);
@@ -223,12 +259,25 @@ function [xc, tIndex]= computeCauchyPoint(G,c,l,u,x)
     tList = Inf(n, 1);
     xt = zeros(n, 1);
     xc = xt;
-    lBoundIndex = (g>0) & (l > -Inf );
-    uBoundIndex = (g<0) & (u < Inf );
-    temp = (x - u) ./ g;
-    tList(uBoundIndex) = temp(uBoundIndex);
-    temp = (x - l) ./ g;
-    tList(lBoundIndex) = temp(lBoundIndex);
+    for i = 1:n
+        if((abs(x(i)-u(i))<1e-12 && abs(g(i)) < 1e-12)  || (abs(g(i)) < 1e-12 && abs(x(i)-l(i))<1e-12))
+            tList(i) = 0;
+            continue;
+        end
+        if(g(i) <0 && u(i) < Inf)
+            tList(i) = (x(i)-u(i)) / g(i);
+        elseif(g(i) >0 && l(i) < Inf)
+            tList(i) = (x(i)-l(i)) / g(i);
+        else
+            tList(i) = Inf;
+        end
+    end
+    for i = 1:3:n
+        if(tList(i) == 0)
+            tList(i+1) = 0;
+            tList(i+2) = 0;
+        end
+    end
     tUniqueList = unique(tList,'sorted');
     if(tUniqueList(end) ~= Inf)
         tUniqueList(end + 1) = Inf;
@@ -267,6 +316,11 @@ function [xc, tIndex]= computeCauchyPointCone(G,c,l,u,x)
     xt = zeros(n, 1);
     xc = xt;
     for i = 1:3:n
+        if((abs(x(i)-u(i))<1e-12 && abs(g(i)) < 1e-12)  || (abs(g(i)) < 1e-12 && abs(x(i)-l(i))<1e-12))
+            tList(i) = 0;
+            continue;
+        end
+
         if((g(i)>0))
             tList(i) = x(i) - l(i) / g(i);
         else
@@ -282,6 +336,13 @@ function [xc, tIndex]= computeCauchyPointCone(G,c,l,u,x)
         end
         tList(i+1) = t;
         tList(i+2) = t;
+    end
+
+    for i = 1:3:n
+        if(tList(i) == 0)
+            tList(i+1) = 0;
+            tList(i+2) = 0;
+        end
     end
 
     tUniqueList = unique(tList,'sorted');

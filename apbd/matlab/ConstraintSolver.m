@@ -284,15 +284,21 @@ classdef ConstraintSolver < handle
             end
         end
         function x = Cone_GPQP(this, A, b, mu)
-            options.ProjectionMethod = 'none';
+            options.ProjectionMethod = 'direct';
             options.MaxIterations = 1000;
             options.CGMaxIterations=100;
             options.Tolerance = 1e-9;
 
-            l = zeros(length(b),1);
+            l = -inf(length(b),1);
+            for i = 1:3:length(b)
+                l(i) = 0;
+            end
             u = inf(length(b),1);
             x = zeros(length(b),1);
             [x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu);
+            if(output.iterations>200)
+                disp(output.iterations);
+            end
             %[xqp,~,~,~,lambdaqp] = quadprog(A,-b,[],[],[],[],l,[],[]);
         end
 
@@ -300,7 +306,7 @@ classdef ConstraintSolver < handle
             options.ProjectionMethod = 'none';
             options.MaxIterations = 10;
             options.CGMaxIterations=100;
-            options.Tolerance = 1e-6;
+            options.Tolerance = 1e-9;
             if nargin < 4
                 l = zeros(length(b),1);
             end
