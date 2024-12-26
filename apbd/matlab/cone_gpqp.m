@@ -50,31 +50,38 @@ fPrev = 0.5 * x' * G * x + x' * c;
 gPrev = G * x + c;
 CGiterVec = [];
 rs = zeros(iterNum,1);
+normalIndex = true(n,1);
+tangentIndex = false(n,1);
+for i = 1:3:n
+    normalIndex(i+1:i+2) = false;
+    tangentIndex(i+1:i+2) = true;
+end
 
 for iter = 1:iterNum
     if(iter == 3)
-        %disp('iter:stop.');
+        disp("stop");
     end
-    
     for i = 1:3:n
         l(i+1) = -mu*x(i);
         u(i+1) = mu*x(i);
         l(i+2) = -mu*x(i);
         u(i+2) = mu*x(i);
     end
-    
-    
+        
     %[xc,neqIndex] = computeCauchyPoint(G,c,l,u,x);
     [xc,neqIndex] = computeCauchyPointCone(G,c,l,u,x);
-    %{
     for i = 1:3:n
-        if(~neqIndex(i))
+        if (norm([x(i+1) x(i+2)]) > mu * x(i))
             neqIndex(i+1) = false;
             neqIndex(i+2) = false;
         end
+        l(i+1) = -mu*x(i);
+        u(i+1) = mu*x(i);
+        l(i+2) = -mu*x(i);
+        u(i+2) = mu*x(i);
     end
-    %}
 
+    x = xc;
     lNeq = l(neqIndex);
     uNeq = u(neqIndex);
     %xY = A * xc;
@@ -96,11 +103,9 @@ for iter = 1:iterNum
 
     %xZ = pcg_rs(Z' * G * Z, -cZ,eps,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts);
     [xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,[],CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex));
+    x(neqIndex) = xZ;
     CGiterVec = [CGiterVec, CGiter];
 
-    x(~neqIndex) = xc(~neqIndex);
-    x(neqIndex) = xZ;
-    
     for i = 1:3:n
         if(x(i) < 0)
             x(i) = 0;
@@ -187,14 +192,14 @@ dZ = -gZ;
 
 resvec = [];
 for j = 1: maxit
-    if(norm(rZ' * M1 * rZ) < tol)
+    if(rZ' * diag(M1) * rZ < tol)
         flag = 0;
         break;
     end
     alpha = (rZ' * gZ) / (dZ' * A * dZ);
     xZ_last = xZ;
     xZ = xZ + alpha * dZ;
-    %{
+    
     feasible = true;
     for i = 1:length(xZ)
         if(mod(mindices(i),3)==1 && xZ(i) < 0)
@@ -209,8 +214,9 @@ for j = 1: maxit
         flag = 1;
         break;
     end
-    %}
     
+
+    %{
     % terminate as soon as a bound l ≤ x ≤ u is encountered
     if(sum(xZ < lReduced) > 0  || sum(xZ > uReduced) > 0)
         switch projectionOpts
@@ -235,7 +241,8 @@ for j = 1: maxit
                 error(msg)
         end
     end
-    
+    %}
+
     rZ_plus = rZ + alpha * A * dZ;
     gZ_plus = M1inv .* rZ_plus;
     beta = (rZ_plus' * gZ_plus) / (rZ' * gZ);
@@ -260,7 +267,7 @@ function [xc, tIndex]= computeCauchyPoint(G,c,l,u,x)
     xt = zeros(n, 1);
     xc = xt;
     for i = 1:n
-        if((abs(x(i)-u(i))<1e-12 && abs(g(i)) < 1e-12)  || (abs(g(i)) < 1e-12 && abs(x(i)-l(i))<1e-12))
+        if((abs(x(i)-u(i))<1e-9 && abs(g(i)) < 1e-9)  || (abs(g(i)) < 1e-9 && abs(x(i)-l(i))<1e-9))
             tList(i) = 0;
             continue;
         end
@@ -318,10 +325,7 @@ function [xc, tIndex]= computeCauchyPointCone(G,c,l,u,x)
     for i = 1:3:n
         if((abs(x(i)-u(i))<1e-12 && abs(g(i)) < 1e-12)  || (abs(g(i)) < 1e-12 && abs(x(i)-l(i))<1e-12))
             tList(i) = 0;
-            continue;
-        end
-
-        if((g(i)>0))
+        elseif((g(i)>0))
             tList(i) = x(i) - l(i) / g(i);
         else
             tList(i) = Inf;
@@ -329,10 +333,10 @@ function [xc, tIndex]= computeCauchyPointCone(G,c,l,u,x)
         xi = [x(i+1) x(i+2)]';
         gi = [g(i+1) g(i+2)]';
         r = u(i+1);
-        if(r<1e-12 && (gi'*gi)<1e-12)
+        if((r^2 - xi'*xi)<1e-12 && (gi'*gi)<1e-12)
             t = 0;
         else
-            t = (xi'*gi + sqrt((xi'*gi)^2 -gi'*gi*(xi'*xi - r^2))) / (gi'*gi);
+            t = (xi'*gi + sqrt((xi'*gi)^2 - gi'*gi*(xi'*xi - r^2))) / (gi'*gi);
         end
         tList(i+1) = t;
         tList(i+2) = t;

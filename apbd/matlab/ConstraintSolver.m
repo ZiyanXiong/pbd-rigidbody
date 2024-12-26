@@ -296,6 +296,7 @@ classdef ConstraintSolver < handle
             u = inf(length(b),1);
             x = zeros(length(b),1);
             [x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu);
+            [x, f, exitflag, output]= matrixfree_gpqp(A,-b,l,u,x,options,mu);
             if(output.iterations>200)
                 disp(output.iterations);
             end
