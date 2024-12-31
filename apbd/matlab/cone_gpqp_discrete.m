@@ -1,6 +1,6 @@
 %% Numerical Optimization (Jorge Nocedal and Stephen J. Wright), Springer, 2006.
 %% Gradient Projection Method for QP (Algorithm 16.5)
-function [x, f, exitflag, output, lambda]= cone_gpqp(G,c,l,u,x,opts, mu)
+function [x, f, exitflag, output, lambda]= cone_gpqp_discrete(G,c,l,u,x,opts, mu)
 if nargin < 2
 	error('At least two arguments required');
 end
@@ -58,7 +58,7 @@ for i = 1:3:n
 end
 
 for iter = 1:iterNum
-    if(iter == 2)
+    if(iter == 23)
         disp("stop");
     end
     for i = 1:3:n
@@ -68,60 +68,64 @@ for iter = 1:iterNum
         u(i+2) = mu*x(i);
     end
         
-    [xc,xd,neqIndex] = computeCauchyPointCone(G,c,l,u,x, mu);
+    %[xc,neqIndex] = computeCauchyPoint(G,c,l,u,x);
+    [xc,neqIndex] = computeCauchyPointCone(G,c,l,u,x);
     x = xc;
-    selectM = zeros(n,length(find(neqIndex)));
-    selecti = 1;
+    
     for i = 1:3:n
-        if(neqIndex(i)&&~neqIndex(i+1))
-            selectM(i:i+2, selecti) = xd(i:i+2);
-            selecti = selecti + 1;
-        elseif(neqIndex(i)&&neqIndex(i+1))
-            selectM(i:i+2,selecti:selecti+2) = eye(3);
-            selecti = selecti + 3;
+        if (norm([x(i+1) x(i+2)]) > mu * x(i))
+            neqIndex(i+1) = false;
+            neqIndex(i+2) = false;
         end
+        l(i+1) = -mu*x(i);
+        u(i+1) = mu*x(i);
+        l(i+2) = -mu*x(i);
+        u(i+2) = mu*x(i);
     end
     
-    cZ = c;
-    
+    lNeq = l(neqIndex);
+    uNeq = u(neqIndex);
+    %xY = A * xc;
+    xY = xc(~neqIndex);
+    %xZ = Z' * xc;
+    xZ = xc(neqIndex);
+    %cZ = Z' * (G * (Y * xY)) + Z' * c;
+    if(isempty(xY))
+        cZ = c(neqIndex);
+    else
+        cZ = G(neqIndex, ~neqIndex) * xY + c(neqIndex);
+    end
+
     H = ones(n,1);
     %H = diag(abs(diag(G)));
     %W_zz = Z' * H * Z;
+    %H = abs(diag(G));
     W_zz = H(neqIndex);
 
-    %H = abs(diag(selectM'*G*selectM));
-    %W_zz = H;
-
     %xZ = pcg_rs(Z' * G * Z, -cZ,eps,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts);
-    %[xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,1e-9,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex));
-    %[xZ,~,~,CGiter,~] = pcr1(G(neqIndex, neqIndex), -cZ, 1e-8, CGiterNum,diag(W_zz),[],xZ,[],[],projectionOpts,find(neqIndex), mu);
-    %[xZ,~,~,CGiter,~] = pcr1(selectM'*G*selectM, -selectM'*cZ, 1e-8, CGiterNum,diag(W_zz),[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
-    [xZ,~,~,CGiter,~] = pcg_rs(selectM'*G*selectM, -selectM'*cZ, 1e-8, CGiterNum,W_zz,[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
-
+    %[xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,1e-6,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex));
+    [xZ,~,~,CGiter,~] = pcr1(G(neqIndex, neqIndex), -cZ, 1e-8, CGiterNum,diag(W_zz),[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex), mu);
     %[xZ,~,~,CGiter,~] = gs(G(neqIndex, neqIndex), -cZ, 1e-8, 20,diag(W_zz),[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex), mu);
+    x(neqIndex) = xZ;
     CGiterVec = [CGiterVec, CGiter];
-    
-    selecti = 1;
-    for i = 1:3:n
-        if(neqIndex(i)&&~neqIndex(i+1))
-            if(xZ(selecti)<0)
-                xZ(selecti) = 0;
-            end
-            x(i:i+2) = xZ(selecti)*xd(i:i+2);
-            selecti = selecti + 1;
-        elseif(neqIndex(i)&&neqIndex(i+1))
-            x(i:i+2) = xZ(selecti:selecti+2);
-            selecti = selecti + 3;
-        end
-    end
 
     for i = 1:3:n
         if(x(i) < 0)
             x(i) = 0;
         end
-
+        %{
+        if (abs(x(i+1)) > mu * x(i))
+            scale = mu * x(i) / abs(x(i+1));
+            x(i+1) = scale * x(i+1);
+        end
+        if (abs(x(i+2)) > mu * x(i))
+            scale = mu * x(i) / abs(x(i+2));
+            x(i+2) = scale * x(i+2);
+        end
+        %}
+        
         if (norm([x(i+1) x(i+2)]) > mu * x(i))
-            scale = (mu * x(i)) / norm([x(i+1) x(i+2)]);
+            scale = (mu * x(i))*(1-1e-6) / norm([x(i+1) x(i+2)]);
             x(i+1) = scale * x(i+1);
             x(i+2) = scale * x(i+2);
         end
@@ -131,30 +135,6 @@ for iter = 1:iterNum
     % if satisfies the KKT conditions
     f = 0.5 * x' * G * x + x' * c;
     g = G * x + c;
-
-    locked = true;
-    for i = 1:3:n
-        if(neqIndex(i)&&neqIndex(i+1))
-            locked = false;
-        end
-    end
-    if(locked)
-        for i = 1:3:n
-            if(neqIndex(i)&&~neqIndex(i+1))
-                if (norm([g(i+1) g(i+2)]) > 1e-6 && norm([x(i+1) x(i+2)]) > 1e-6)
-                    gdi = -g(i+1:i+2) / norm(g(i+1:i+2));
-                    xdi = x(i+1:i+2) / norm(x(i+1:i+2));
-                else
-                    continue;
-                end
-                
-                if( gdi'*xdi > 0 && gdi'*xdi < 0.98)
-                    %x(i+1:i+2) = abs(gdi'*xdi) * x(i+1:i+2);
-                end
-            end
-        end
-    end
-    
 
 	if norm(g) < eps && sum(neqIndex) == n
 		break;
@@ -190,7 +170,7 @@ output.rs = rs;
 end
 
 %% Preconditioned CG for Reduced Systems (Algorithm 16.1 )
-function [xZ, flag, relres, j, resvec] = pcg_rs(A,b,tol,maxit,M1,~,x0,lReduced,uReduced,projectionOpts,mindices,mu)
+function [xZ, flag, relres, j, resvec] = pcg_rs(A,b,tol,maxit,M1,~,x0,lReduced,uReduced,projectionOpts,mindices)
 %M1 is assumed to be a diagnal matrix, so it is represented by a vector
 %inside this function.
 n = size(b,1);
@@ -228,8 +208,7 @@ for j = 1: maxit
         if(mod(mindices(i),3)==1 && xZ(i) < 0)
             feasible = false;
         end
-
-        if(mod(mindices(i),3)==2 && norm([xZ(i) xZ(i+1)]) > mu*xZ(i-1))
+        if(mod(mindices(i),3)==2 && norm([xZ(i) xZ(i+1)]) > uReduced(i))
             feasible = false;
         end
     end
@@ -238,6 +217,7 @@ for j = 1: maxit
         flag = 1;
         break;
     end
+    
 
     %{
     % terminate as soon as a bound l ≤ x ≤ u is encountered
@@ -325,8 +305,7 @@ function [x,flag,relres,iter,resvec] = pcr1(A,b,tol,maxit,M,~,x0,~,uReduced,~,mi
             if(mod(mindices(i),3)==1 && x(i) < 0)
                 feasible = false;
             end
-
-            if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > mu*x(i-1))
+            if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > uReduced(i))
                 feasible = false;
             end
         end
@@ -397,41 +376,45 @@ function [x,flag,relres,iter,resvec] = gs(A,b,tol,maxit,M,~,x0,~,uReduced,~,mind
     end
 end
 
-function [xc, xd, tIndex]= computeCauchyPointCone(G,c,l,u,x,mu)
+%% Computes Cauchy Point (Algorithm 16.5 line 5)
+function [xc, tIndex]= computeCauchyPoint(G,c,l,u,x)
     g = G * x + c;
     n = size(g, 1);
     tList = Inf(n, 1);
     xt = zeros(n, 1);
     xc = xt;
-    for i = 1:3:n
-        t = rayConeIntersection(x(i:i+2),-g(i:i+2),mu);
-        tList(i) = t;
-        if((abs(g(i)) < 1e-9 && abs(x(i))<1e-9))
-            tList(i+1) = 0;
-        elseif(g(i)>0)
-            tList(i+1) = x(i) / g(i);
-        else
-            tList(i+1) = Inf;
+    for i = 1:n
+        if((abs(x(i)-u(i))<1e-9 && abs(g(i)) < 1e-9)  || (abs(g(i)) < 1e-9 && abs(x(i)-l(i))<1e-9))
+            tList(i) = 0;
+            continue;
         end
-        tList(i+2) = Inf;
+        if(g(i) <0 && u(i) < Inf)
+            tList(i) = (x(i)-u(i)) / g(i);
+        elseif(g(i) >0 && l(i) < Inf)
+            tList(i) = (x(i)-l(i)) / g(i);
+        else
+            tList(i) = Inf;
+        end
     end
-
+    for i = 1:3:n
+        if(tList(i) == 0)
+            tList(i+1) = 0;
+            tList(i+2) = 0;
+        end
+    end
     tUniqueList = unique(tList,'sorted');
     if(tUniqueList(end) ~= Inf)
         tUniqueList(end + 1) = Inf;
     end
     t = 0;
     for i = 1: size(tUniqueList,1)
-        %{
-        tIndex = t < tList;
+        tIndex = t <= tList;
         temp = x - t * g;
         xt(tIndex) = temp(tIndex);
         temp = x - tList .* g;
         xt(~tIndex) = temp(~tIndex);
         p = zeros(n, 1);
         p(tIndex) = -g(tIndex);
-        %}
-        [xt,p] = compute_xt_p(tList, t, x, g);
         fPrime = c' * p + xt' * G * p;
         fPrimePrime = p' * G * p;
         deltaTStar = - fPrime / fPrimePrime;
@@ -443,152 +426,73 @@ function [xc, xd, tIndex]= computeCauchyPointCone(G,c,l,u,x,mu)
         end
         t = tUniqueList(i);
     end
-    %{
     tIndex = t < tList;
     temp = x - t * g;
     xc(tIndex) = temp(tIndex);
     temp = x - tList .* g;
     xc(~tIndex) = temp(~tIndex);
-    %}
-    [xc,~] = compute_xt_p(tList, t, x, g);
-
-    tIndex = false(n,1);
-    xd = zeros(n,1);
-    for i = 1:3:n
-        if(t<tList(i))
-            tIndex(i:i+2) = true;
-        elseif(t<tList(i+1))
-            tIndex(i) = true;
-        else
-            tIndex(i:i+2) = false;
-        end
-        if(norm(xc(i:i+2))<1e-9)
-            xd(i:i+2) = [1 0 0]';
-        else
-            xd(i:i+2) = xc(i:i+2) / norm(xc(i:i+2));
-        end
-    end
 end
 
-function [xt,p] = compute_xt_p(tList,t,x,g)
-    n = length(x);
-    xt = zeros(n,1);
-    p = zeros(n,1);
+function [xc, tIndex]= computeCauchyPointCone(G,c,l,u,x)
+    g = G * x + c;
+    n = size(g, 1);
+    tList = Inf(n, 1);
+    xt = zeros(n, 1);
+    xc = xt;
     for i = 1:3:n
-        if(t < tList(i))
-            xt(i:i+2) = x(i:i+2) - t*g(i:i+2);
-            p(i:i+2) = -g(i:i+2);
-        elseif(t < tList(i+1))
-            gp = g(i:i+2);
-            if(norm(x(i:i+2))<1e-9)
-                xd = [1 0 0]';
-            else
-                xd = x(i:i+2) / norm(x(i:i+2));
-            end
-            gp = (xd'*gp)*xd;
-            xt(i:i+2) = x(i:i+2) - tList(i)*g(i:i+2) - (t - tList(i))*gp;
-            p(i:i+2) = -gp;
+        if((abs(x(i)-u(i))<1e-6 && abs(g(i)) < 1e-6)  || (abs(g(i)) < 1e-6 && abs(x(i)-l(i))<1e-6))
+            tList(i) = 0;
+        elseif((g(i)>0))
+            tList(i) = (x(i) - l(i)) / g(i);
         else
-            gp = g(i:i+2);
-            if(norm(x(i:i+2))<1e-9)
-                xd = [1 0 0]';
-            else
-                xd = x(i:i+2) / norm(x(i:i+2));
-            end
-            gp = (xd'*gp)*xd;
-            xt(i:i+2) = x(i:i+2) - tList(i)*g(i:i+2) - (tList(i+1) - tList(i))*gp;
-            p(i:i+2) = zeros(3,1);
+            tList(i) = Inf;
         end
-    end
-
-end
-
-%% Ray-Cone Intersection
-function t = rayConeIntersection(x, g, mu)
-    gnorm = norm(g);
-    g = g / gnorm;
-
-    A = g(2)^2 + g(3)^2 - g(1)^2 * mu^2;
-    B = 2 * (x(2)*g(2) + x(3)*g(3) - x(1)*g(1) * mu^2);
-    C = x(2)^2 + x(3)^2 - x(1)^2 * mu^2;
-
-    if(abs(C)<1e-9)
-        C = 0;
-    end
-
-    if(abs(C)<1e-9 && gnorm < 1e-9)
-        t = 0;
-        return;
-    end
-
-    % Solve the quadratic equation
-    discriminant = B^2 - 4*A*C;
-
-    if(abs(A)<1e-12)
-        if(g(1)>0)
-            t = Inf;
-            return;
-        end
-
-        if(abs(B)<1e-12)
-            t = - x(1) / g(1);
+        xi = [x(i+1) x(i+2)]';
+        gi = [g(i+1) g(i+2)]';
+        r = u(i+1);
+        if((abs(norm(xi) - r)<1e-6 && norm(gi)<1e-6))
+            t = 0;
         else
-            t = -C/B;
+            t = (xi'*gi + sqrt((xi'*gi)^2 - gi'*gi*(xi'*xi - r^2))) / (gi'*gi);
         end
-        t = t * gnorm;
-        return;
+        tList(i+1) = t;
+        tList(i+2) = t;
     end
 
-    if discriminant < 1e-12
-        if g(1)>0
-            if(norm(g(2:3)) > mu*g(1))
-                t = 0;
-            else
-                t = Inf;
-            end
-        else
-            t = -B / (2 * A);
+    for i = 1:3:n
+        if(tList(i) == 0)
+            tList(i+1) = 0;
+            tList(i+2) = 0;
         end
-        t = t * gnorm;
-        return;
     end
 
-    % Compute the roots
-    if(A>0)
-        t1 = (-B - sqrt(discriminant)) / (2 * A);
-        t2 = (-B + sqrt(discriminant)) / (2 * A);
-    else
-        t2 = (-B - sqrt(discriminant)) / (2 * A);
-        t1 = (-B + sqrt(discriminant)) / (2 * A);
+    tUniqueList = unique(tList,'sorted');
+    if(tUniqueList(end) ~= Inf)
+        tUniqueList(end + 1) = Inf;
     end
-
-    if(t1 ==0)
-        if(x(1) + t2*g(1) >0)
-            t = t2;
-        else
-            t = t1;
+    t = 0;
+    for i = 1: size(tUniqueList,1)
+        tIndex = t < tList;
+        temp = x - t * g;
+        xt(tIndex) = temp(tIndex);
+        temp = x - tList .* g;
+        xt(~tIndex) = temp(~tIndex);
+        p = zeros(n, 1);
+        p(tIndex) = -g(tIndex);
+        fPrime = c' * p + xt' * G * p;
+        fPrimePrime = p' * G * p;
+        deltaTStar = - fPrime / fPrimePrime;
+        if(fPrime >0)
+            break;
+        elseif(deltaTStar >=0 && deltaTStar < tUniqueList(i) - t)
+            t = t + deltaTStar;
+            break;
         end
-        t = t * gnorm;
-        return;
+        t = tUniqueList(i);
     end
-
-    if(t2 ==0)
-        if(x(1) + t1*g(1) >0)
-            t = t2;
-        else
-            t = Inf;
-        end
-        t = t * gnorm;
-        return;
-    end
-    
-    
-    if(t1>0 && t2 >0)
-        t = min(t1,t2);
-    elseif(t1<0 && t2<0)
-        t = Inf;
-    else
-        t = max(t1,t2);
-    end
-    t = t * gnorm;
+    tIndex = t < tList;
+    temp = x - t * g;
+    xc(tIndex) = temp(tIndex);
+    temp = x - tList .* g;
+    xc(~tIndex) = temp(~tIndex);
 end

@@ -67,14 +67,14 @@ classdef GPQPBlock < handle
             if((abs(this.x(1)-this.u(1))<1e-12 && abs(this.g(1)) < 1e-12)  || (abs(this.g(1)) < 1e-12 && abs(this.x(1)-this.l(1))<1e-12))
                 this.t_bar(1) = 0;
             elseif((this.g(1)>0))
-                this.t_bar(1) = this.x(1) - this.l(1) / this.g(1);
+                this.t_bar(1) = (this.x(1) - this.l(1)) / this.g(1);
             else
                 this.t_bar(1) = Inf;
             end
             xi = this.x(2:3);
             gi = this.g(2:3);
             r = this.u(2);
-            if(r<1e-12 && (gi'*gi)<1e-12)
+            if(abs(norm(xi) - r)<1e-12 && norm(gi)<1e-12)
                 ti = 0;
             else
                 ti = (xi'*gi + sqrt((xi'*gi)^2 -gi'*gi*(xi'*xi - r^2))) / (gi'*gi);

@@ -947,12 +947,12 @@ switch(modelID)
 		mu = 0.5;
 
 		model.ground.size = 10;
-		model.axis = 20*[-1 1 -1 1 0 1];
+		model.axis = 30*[-1 1 -1 1 0 1];
 		model.drawHz = 60;
 
 		model.view = [0 0];
 
-		n = 10;
+		n = 12;
         halfAngle = 0.5 * pi / n;
         halfDistance = 0.4 * w;
 		for i = 1 : n

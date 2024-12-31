@@ -25,6 +25,7 @@ classdef (Abstract) Body < handle
         layer    % Which contact layer this body is
         neighbors % Indices for neighobor bodies
         collisions
+        LTx      % Buffer for storing results from L'*x (Matrix(6x3) * vector(3x1))
     end
 
 	%%
@@ -45,6 +46,7 @@ classdef (Abstract) Body < handle
             this.layer = 99;
             this.neighbors = [];
             this.collisions= [];
+            this.LTx = zeros(6,1);
 		end
 
 		%%

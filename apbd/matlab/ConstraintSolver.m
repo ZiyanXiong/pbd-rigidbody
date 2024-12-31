@@ -283,11 +283,12 @@ classdef ConstraintSolver < handle
                 end
             end
         end
+        
         function x = Cone_GPQP(this, A, b, mu)
             options.ProjectionMethod = 'direct';
             options.MaxIterations = 1000;
-            options.CGMaxIterations=100;
-            options.Tolerance = 1e-9;
+            options.CGMaxIterations=200;
+            options.Tolerance = 1e-8;
 
             l = -inf(length(b),1);
             for i = 1:3:length(b)
@@ -296,7 +297,7 @@ classdef ConstraintSolver < handle
             u = inf(length(b),1);
             x = zeros(length(b),1);
             [x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu);
-            [x, f, exitflag, output]= matrixfree_gpqp(A,-b,l,u,x,options,mu);
+            %[x, f, exitflag, output]= matrixfree_gpqp(A,-b,l,u,x,options,mu);
             if(output.iterations>200)
                 disp(output.iterations);
             end

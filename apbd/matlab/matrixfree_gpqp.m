@@ -67,7 +67,7 @@ CGiterVec = [];
 
 for iter = 1:iterNum
     if(iter == 3)
-        disp(iter);
+        %disp(iter);
     end
     computeCauchyPoint(blockList, n);
 

@@ -4,9 +4,8 @@ classdef ConColl < apbd.ConBase
 	properties
 		nw % collision normal wrt world (3x1)
 		d  % penetration depth (negative if collision)
+        
 		
-		dlambdaNor % Lagrange multiplier update for normal force
-        dlambdaSP % Lagrange multiplier saved for shock porpagation
 		s % scale for display
 	end
 
@@ -16,8 +15,6 @@ classdef ConColl < apbd.ConBase
 			this = this@apbd.ConBase(3);
 			this.nw = zeros(3,1);
 			this.d = 0;
-			this.dlambdaNor = zeros(3,1);
-            this.dlambdaSP = zeros(3,1);
 			this.s = 1;
 		end
 

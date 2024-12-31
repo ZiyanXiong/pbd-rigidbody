@@ -89,28 +89,13 @@ classdef ConCollGroundRigid < apbd.ConColl
 
         %%
         function applyLambda(this, dlambdas)
-            %{
-            lambdas = this.lambda + dlambdas;
-            if(lambdas(1) < 0)
-                dlambdas(1) = - this.lambda(1);
-                this.collision.broken = true;
-            end
-
-            lambdas = this.lambda + dlambdas;
-            frictionRadius = this.mu * lambdas(1);
-            if(norm(lambdas(2:3)) > frictionRadius)
-                lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
-                dlambdas = lambdas - this.lambda; 
-                this.collision.broken = true;
-            end
-            %}
             this.lambda = this.lambda + dlambdas;
             this.body.v = this.body.v + this.delLinVel1 * dlambdas;
             this.body.w = this.body.w + this.angDelta1 * dlambdas;
         end
 
 		%%
-        function solveNorPos(this, minpenetration, withSP)
+        function solveNorPos(this, minpenetration)
             %sep = this.nw' * (this.body.transformPoint(this.xl) - this.xw0) + this.d;
             sep = this.nw' * this.body.deltaLinDt + this.raXn(:,1)' * this.body.deltaAngDt + this.nw'* this.d;
             sep = max(minpenetration,sep);
@@ -129,7 +114,7 @@ classdef ConCollGroundRigid < apbd.ConColl
         end
 
 		%%
-        function solveTanVel(this, withSP)
+        function solveTanVel(this)
             dlambdaTan = zeros(2,1);
             for i = 2:3
                 sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.d;
@@ -149,10 +134,6 @@ classdef ConCollGroundRigid < apbd.ConColl
             this.lambda = this.lambda + dlambdas;
             this.body.v = this.body.v + this.delLinVel1 * dlambdas;
             this.body.w = this.body.w + this.angDelta1 * dlambdas;
-        end
-
-        %%
-        function applyLambdaSP(this)
         end
 
 		%%
