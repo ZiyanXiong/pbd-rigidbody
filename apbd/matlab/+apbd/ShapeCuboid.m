@@ -98,17 +98,26 @@ classdef ShapeCuboid < apbd.Shape
 					d = -collisions.depth(i); % odeBoxBox returns positive depth for hits
 					% Compute local point on body 1 with ray casting
 					x1 = R1'*(xw - p1);
-					[~,t1] = this.raycast(x1,n1);
-					x1 = x1 - t1*n1; % negate since smits_mul returns negative t for rays starting inside the box
+                    %x1 = x1 - d*n1;
+					%[~,t1] = this.raycast(x1,n1);
+					%x1 = x1 - t1*n1; % negate since smits_mul returns negative t for rays starting inside the box
 					% Compute local point on body 2 with ray casting
 					x2 = R2'*(xw - p2);
-					[~,t2] = that.raycast(x2,n2);
-					x2 = x2 - t2*n2; % negate since smits_mul returns negative t for rays starting inside the box
+                    x2 = x2 - d*n2;
+					%[~,t2] = that.raycast(x2,n2);
+					%x2 = x2 - t2*n2; % negate since smits_mul returns negative t for rays starting inside the box
 					cdata(end+1).d = d; %#ok<AGROW>
 					cdata(end).xw = xw;
 					cdata(end).nw = nw;
 					cdata(end).x1 = x1;
 					cdata(end).x2 = x2;
+                    %{
+                    dray = E1*[x1;1] - E2*[x2;1];
+                    dray = nw'*dray(1:3);
+                    if(abs(dray - d) > 0.1)
+                        error('incorrect ray casting results.')
+                    end
+                    %}
 				end
 			else
 				error('Unsupported shape');

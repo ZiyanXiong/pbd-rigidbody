@@ -46,6 +46,23 @@ else
     eps = 1e-9;
 end
 
+%{
+H = abs(diag(G));
+[x,~,~,~,~] = pcg_rs(G, -c, 1e-8, CGiterNum,H,[],x,[],[],projectionOpts,1:length(c), mu);
+for i = 1:3:n
+    if(x(i) < 0)
+        x(i) = 0;
+    end
+
+    if (norm([x(i+1) x(i+2)]) > mu * x(i))
+        scale = (mu * x(i)) / norm([x(i+1) x(i+2)]);
+        x(i+1) = scale * x(i+1);
+        x(i+2) = scale * x(i+2);
+    end
+    
+end
+%}
+
 fPrev = 0.5 * x' * G * x + x' * c;
 gPrev = G * x + c;
 CGiterVec = [];
@@ -58,7 +75,7 @@ for i = 1:3:n
 end
 
 for iter = 1:iterNum
-    if(iter == 2)
+    if(iter == 10)
         disp("stop");
     end
     for i = 1:3:n
@@ -84,19 +101,24 @@ for iter = 1:iterNum
     
     cZ = c;
     
-    H = ones(n,1);
+    %H = ones(n,1);
     %H = diag(abs(diag(G)));
     %W_zz = Z' * H * Z;
-    W_zz = H(neqIndex);
+    %W_zz = H(neqIndex);
 
-    %H = abs(diag(selectM'*G*selectM));
-    %W_zz = H;
+    H = abs(diag(selectM'*G*selectM));
+    W_zz = H;
 
     %xZ = pcg_rs(Z' * G * Z, -cZ,eps,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts);
     %[xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,1e-9,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex));
     %[xZ,~,~,CGiter,~] = pcr1(G(neqIndex, neqIndex), -cZ, 1e-8, CGiterNum,diag(W_zz),[],xZ,[],[],projectionOpts,find(neqIndex), mu);
-    %[xZ,~,~,CGiter,~] = pcr1(selectM'*G*selectM, -selectM'*cZ, 1e-8, CGiterNum,diag(W_zz),[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
-    [xZ,~,~,CGiter,~] = pcg_rs(selectM'*G*selectM, -selectM'*cZ, 1e-8, CGiterNum,W_zz,[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
+    [xZ,~,~,CGiter,~] = pcr1(selectM'*G*selectM, -selectM'*cZ, 1e-7, CGiterNum,diag(W_zz),[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
+    %[xZ,~,~,CGiter,~] = pcg_rs(selectM'*G*selectM, -selectM'*cZ, 1e-8, CGiterNum,W_zz,[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
+    %[xZ,~,~,CGiter,~] = minres1(selectM'*G*selectM, -selectM'*cZ, 1e-7, CGiterNum,diag(W_zz),[],selectM' * x,[],[],projectionOpts,find(neqIndex), mu);
+
+    %R = chol(selectM'*G*selectM + 1e-6*eye(selecti - 1));
+    %[xZ,~,~,CGiter,~] = minres(selectM'*G*selectM,-selectM'*cZ,1e-4,CGiterNum,R',R, selectM' * x);
+    %[xZ,~,~,CGiter,~] = minres(selectM'*G*selectM + 1e-6*eye(selecti - 1),-selectM'*cZ,1e-8,CGiterNum);
 
     %[xZ,~,~,CGiter,~] = gs(G(neqIndex, neqIndex), -cZ, 1e-8, 20,diag(W_zz),[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex), mu);
     CGiterVec = [CGiterVec, CGiter];
@@ -155,7 +177,7 @@ for iter = 1:iterNum
         end
     end
     
-
+    rs(iter) = norm(g);
 	if norm(g) < eps && sum(neqIndex) == n
 		break;
 	end
@@ -167,7 +189,6 @@ for iter = 1:iterNum
     end
     fPrev = f;
     gPrev = g;
-    rs(iter) = norm(g);
 end
 
 lambdaLower = G * x + c;
@@ -225,11 +246,11 @@ for j = 1: maxit
     
     feasible = true;
     for i = 1:length(xZ)
-        if(mod(mindices(i),3)==1 && xZ(i) < 0)
+        if(mod(mindices(i),3)==1 && xZ(i) < -1e-6)
             feasible = false;
         end
 
-        if(mod(mindices(i),3)==2 && norm([xZ(i) xZ(i+1)]) > mu*xZ(i-1))
+        if(mod(mindices(i),3)==2 && norm([xZ(i) xZ(i+1)]) > mu*xZ(i-1) + 1e-6)
             feasible = false;
         end
     end
@@ -322,11 +343,11 @@ function [x,flag,relres,iter,resvec] = pcr1(A,b,tol,maxit,M,~,x0,~,uReduced,~,mi
 
         feasible = true;
         for i = 1:length(x)
-            if(mod(mindices(i),3)==1 && x(i) < 0)
+            if(mod(mindices(i),3)==1 && x(i) < 1e-6)
                 feasible = false;
             end
 
-            if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > mu*x(i-1))
+            if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > mu*x(i-1)+ 1e-6)
                 feasible = false;
             end
         end
@@ -406,8 +427,8 @@ function [xc, xd, tIndex]= computeCauchyPointCone(G,c,l,u,x,mu)
     for i = 1:3:n
         t = rayConeIntersection(x(i:i+2),-g(i:i+2),mu);
         tList(i) = t;
-        if((abs(g(i)) < 1e-9 && abs(x(i))<1e-9))
-            tList(i+1) = 0;
+        if((abs(g(i)) < 1e-6 && abs(x(i))<1e-6))
+            tList(i+1) = Inf;
         elseif(g(i)>0)
             tList(i+1) = x(i) / g(i);
         else
@@ -512,12 +533,8 @@ function t = rayConeIntersection(x, g, mu)
     B = 2 * (x(2)*g(2) + x(3)*g(3) - x(1)*g(1) * mu^2);
     C = x(2)^2 + x(3)^2 - x(1)^2 * mu^2;
 
-    if(abs(C)<1e-9)
-        C = 0;
-    end
-
-    if(abs(C)<1e-9 && gnorm < 1e-9)
-        t = 0;
+    if(abs(C)<1e-6 && gnorm < 1e-6)
+        t = Inf;
         return;
     end
 
@@ -535,7 +552,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = -C/B;
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
 
@@ -549,7 +566,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = -B / (2 * A);
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
 
@@ -568,7 +585,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = t1;
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
 
@@ -578,7 +595,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = Inf;
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
     
@@ -590,5 +607,5 @@ function t = rayConeIntersection(x, g, mu)
     else
         t = max(t1,t2);
     end
-    t = t * gnorm;
+    t = t / gnorm;
 end

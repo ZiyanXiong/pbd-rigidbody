@@ -3,6 +3,7 @@ classdef ConstraintSolver < handle
         itermax
         rs
         tol
+        itercount
     end
 
     methods
@@ -10,6 +11,7 @@ classdef ConstraintSolver < handle
             this.itermax = itermax;
             this.tol = tol;
             this.rs = zeros(this.itermax,1);
+            this.itercount = 0;
         end
 
         function x = Gauss_Sidiel(this, A, b, mu, x0)
@@ -19,8 +21,9 @@ classdef ConstraintSolver < handle
             else
                 x = x0;
             end
+            this.rs = zeros(this.itermax,1);
             for iter = 1:this.itermax
-                %{
+                
                 for i = 1 : 3 : n
                     ri = b(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
@@ -36,7 +39,7 @@ classdef ConstraintSolver < handle
 
                     ri = b(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
-                                        
+                   
                     %Projection
                     if(mod(i,3) == 0)
                         if(x(i-2) < 0)
@@ -48,49 +51,60 @@ classdef ConstraintSolver < handle
                             x(i) = scale * x(i);
                         end
                     end
+                   
                 end
-                %}
-
-                db = b-A*x;
-                dx = zeros(n,1);
-                for normal_iter = 1:30
-                    for i = 1 : 3 : n
-                        ri = db(i) - A(i,:)*dx;
-                        dx(i) = dx(i) + ri / A(i,i);
-                        if(dx(i) < -x(i))
-                            dx(i) = -x(i);
-                        end
-                    end
-                end
-                x = x+dx;
-
-                db = b - A*x;
-                dx = zeros(n,1);
-                for i = 1 : n
-                    if(mod(i,3) == 1)
-                        continue;
-                    end
-                    ri = db(i) - A(i,:)*dx;
-                    dx(i) = dx(i) + ri / A(i,i);
-                    
-                    %Projection
-                    if(mod(i,3) == 0)
-                        if(x(i-2) + dx(i-2) < 0)
-                            dx(i-2) = -x(i-2);
-                        end
-                        if (norm([x(i-1) x(i)] + [dx(i-1) dx(i)]) > mu * x(i-2))
-                            scale = mu * x(i-2) / norm([x(i-1) x(i)] + [dx(i-1) dx(i)]);
-                            dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
-                            dx(i) = scale * (x(i) + dx(i)) - x(i);
-                        end
-                    end
-                end
-                x = x+dx;
-                this.rs(iter) = norm(b - A*(x));
+                r = b - A*x;
+                this.rs(iter) = norm(r(r>0));
             end
+            this.itercount = iter;
+            %lambda = x;
+            %save('GS_lambda.mat',"lambda");
+        end
 
-            lambda = x;
-            save('GS_lambda.mat',"lambda");
+        function [lambdax] = Temporal_Gauss_Sidiel(this, A, b, mu, d, substeps)
+            n = size(b,1);
+            x = zeros(n,1);
+            lambdax = zeros(n,1);
+            this.rs = zeros(this.itermax,1);
+            cpv0 = -(b + d);
+            d = d * substeps;
+            bsub = - (cpv0 + d);
+            for iter = 1:substeps
+                for i = 1 : 3 : n
+                    ri = bsub(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                    if(x(i) < 0)
+                        x(i) = 0;
+                    end
+                end
+
+                for i = 1 : 3: n
+                    %{
+                    ri = bsub(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                    if(x(i) < 0)
+                        x(i) = 0;
+                    end
+                    %}
+                    ri1 = bsub(i+1) - A(i+1,:)*x;
+                    x(i+1) = x(i+1) + ri1 / A(i+1,i+1);
+                    ri2 = bsub(i+2) - A(i+2,:)*x ;
+                    x(i+2) = x(i+2) + ri2 / A(i+2,i+2);
+               
+                    if (norm([x(i+1) x(i+2)]) > mu * x(i))
+                        scale = mu * x(i) / norm([x(i+1) x(i+2)]);
+                        x(i+1) = scale * x(i+1);
+                        x(i+2) = scale * x(i+2);
+                    end
+                end
+                bsub = bsub - (cpv0+A*x);
+                lambdax = lambdax + x / substeps;
+                rx = b - A*lambdax;
+                this.rs(iter) = norm(rx(rx>0));
+            end
+            this.itercount = substeps;
+            %lambda = x;
+            %save('GS_lambda.mat',"lambda");
         end
 
         function x = GPQP_Warmstarted_GS(this, A, b, mu)
@@ -144,7 +158,6 @@ classdef ConstraintSolver < handle
         end
 
         function x = Staggered(this, A, b, mu)
-            this.itermax = 1000;
             options.ProjectionMethod = 'none';
             options.MaxIterations = 100;
             options.Tolerance = 1e-9;
@@ -160,7 +173,9 @@ classdef ConstraintSolver < handle
             for j = 1:length(x_n)
                 tind(j*2-1:j*2) = [(j-1)*3+1 (j-1)*3+2]+1;
             end
-            for iter = 1:this.itermax
+            iter = 1;
+            this.rs = zeros(this.itermax,1);
+            while(iter < this.itermax)
                 db = b- A*x;
                 [dx_n, f, exitflag, output, lambda]= gpqp(A(1:3:n,1:3:n),-db(1:3:n),-x_n,u_n,zeros(n/3,1), options);
                 %[dx_n,~,~,~,lambdaqp] = quadprog(A(1:3:n,1:3:n),-db(1:3:n),[],[],[],[],l_n,[],[]);
@@ -176,7 +191,8 @@ classdef ConstraintSolver < handle
                 [dx_t, f, exitflag, output, lambda]= gpqp(A(tind,tind),-db(tind),l_t,u_t,zeros(2*n/3,1), options);
                 x_t = x_t + dx_t;
                 x(tind) = x_t;
-                this.rs(iter) = norm(b - A*x);
+                this.rs(iter:iter + sum(output.cgiterations)) = norm(b - A*x);
+                iter = iter + sum(output.cgiterations) + 1;
             end
         end
 
@@ -296,11 +312,29 @@ classdef ConstraintSolver < handle
             end
             u = inf(length(b),1);
             x = zeros(length(b),1);
+            n = length(b);
+
+            [x_n, f, exitflag, output, lambda]= gpqp(A(1:3:n,1:3:n),-b(1:3:n),x(1:3:n),u(1:3:n),zeros(n/3,1), options);
+            x(1:3:n) = x_n;
+
             [x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu);
+
+            this.rs = zeros(this.itermax,1);
+            iter = 1;
+            for i = 1:length(output.cgiterations)
+                this.rs(iter:iter+output.cgiterations(i)) = output.rs(i);
+                iter = iter+output.cgiterations(i) + 1;
+                if(iter > this.itermax)
+                    break;
+                end
+            end
+
             %[x, f, exitflag, output]= matrixfree_gpqp(A,-b,l,u,x,options,mu);
+            %{
             if(output.iterations>200)
                 disp(output.iterations);
             end
+            %}
             %[xqp,~,~,~,lambdaqp] = quadprog(A,-b,[],[],[],[],l,[],[]);
         end
 
@@ -318,98 +352,419 @@ classdef ConstraintSolver < handle
             %[xqp,~,~,~,lambdaqp] = quadprog(A,-b,[],[],[],[],l,[],[]);
         end
 
-        function x = Preconditioned_Conjugate_Gradient(this, A, b, Asp, mu)
+        function x = Preconditioned_Conjugate_Gradient(this, A, b, A_tilde)
             %Asp = diag(diag(A));
             %Asp = eye(size(A));
-            [x,~,relres,iters] = pcg(A,b,this.tol,this.itermax, @(x) solvMinvx(Asp, x));
+            [x,~,relres,iters] = pcg(A,b,this.tol,this.itermax, @(x) solvMinvx(A_tilde, x));
             this.rs = relres;
+
+            opts.diagcomp = 1e-3;
+            Li = ichol(sparse(A),opts);
+            [x,~,relres,iters] = pcg(A,b,this.tol,this.itermax,Li,Li');
 
             function y = solvMinvx(M,x)
                 Minv = pinv(M);
                 y = Minv*x;
+                %y = x;
             end
         end
 
-        function x = Shock_Propagation(this, A, b, Asp, blocks, mu)
-            %{
-            A = A(1:3:end,1:3:end);
-            Asp = Asp(1:3:end,1:3:end);
-            b = b(1:3:end);
-            for i = 1:length(blocks)
-                blocks{i} = (1:8) + (i-1)*8;
-            end
-            blocks{end} = [blocks{end}, (1:4) + i*8];
-            
-            Aspinv = Asp;
-            for i = 2:5
-                Aspinv(blocks{i},blocks{i})= A(blocks{i},blocks{i}) - A(blocks{i-1},blocks{i})' * pinv(Aspinv(blocks{i-1},blocks{i-1})) *  A(blocks{i-1},blocks{i});
-            end
-            Asp = Aspinv;
-            %}
-
+        function x = Shock_Propagation(this, A, b, Asp, mu)
             n = size(b,1);
             x = zeros(n,1);
-
+            this.rs = zeros(this.itermax,1);
             AspT = Asp';
-            for iter = 1:this.itermax
-                for i = 1:length(blocks)
-                %r = bsp - B*x;
-                    for j = blocks{i}
-                        ri = b(j) - Asp(j,:) * x;
-                        x(j) = x(j) + ri ./ Asp(j,j);
-                        %{
-                        if(x(j) < 0)
-                            x(j) = 0;
+            for iter = 1:1000
+                for i = 1:n
+                    ri = b(i) - Asp(i,:) * x;
+                    x(i) = x(i) + ri ./ Asp(i,i); 
+                    if(mod(i,3) == 0)
+                        if(x(i-2) < 0)
+                            x(i-2) = 0;
                         end
-                        %}
-                        %{
-                        if(mod(j,3) == 0)
-                            if(x(j-2) < 0)
-                                x(j-2) = 0;
-                            end
-                            if (norm([x(j-1) x(j)]) > mu * x(j-2))
-                                scale = mu * x(j-2) / norm([x(j-1) x(j)]);
-                                x(j-1) = scale * x(j-1);
-                                x(j) = scale * x(j);
-                            end
+                        if (norm([x(i-1) x(i)]) > mu * x(i-2))
+                            scale = mu * x(i-2) / norm([x(i-1) x(i)]);
+                            x(i-1) = scale * x(i-1);
+                            x(i) = scale * x(i);
                         end
-                        %}
                     end
                 end
-                this.rs(iter) = norm(b - Asp*x);
+                r = b - A*x;
+                this.rs(iter) = norm(r(r>0));
             end
-            %x = pinv(Asp) * b;
+
             rsp = b - tril(Asp - AspT) * x;
             %x = pinv(AspT)*rsp;
-            x = zeros(n,1);
-            for iter = 1:this.itermax
-                for i = 1:length(blocks)
-                    for j = blocks{i}
-                        ri = rsp(j) - AspT(j,:) * x;
-                        x(j) = x(j) + ri ./ AspT(j,j);
-                        %{
-                        if(x(j) < 0)
-                            x(j) = 0;
+            %x = zeros(n,1);
+            for iter = 1001:3000
+                for i = 1:n
+                    ri = rsp(i) - AspT(i,:) * x;
+                    x(i) = x(i) + ri ./ AspT(i,i);
+        
+                    if(mod(i,3) == 0)
+                        if(x(i-2) < 0)
+                            x(i-2) = 0;
                         end
-                        %}
-                        
-                        if(mod(j,3) == 0)
-                            if(x(j-2) < 0)
-                                x(j-2) = 0;
-                            end
-                            if (norm([x(j-1) x(j)]) > mu * x(j-2))
-                                scale = mu * x(j-2) / norm([x(j-1) x(j)]);
-                                x(j-1) = scale * x(j-1);
-                                x(j) = scale * x(j);
-                            end
+                        if (norm([x(i-1) x(i)]) > mu * x(i-2))
+                            scale = mu * x(i-2) / norm([x(i-1) x(i)]);
+                            x(i-1) = scale * x(i-1);
+                            x(i) = scale * x(i);
                         end
-                        
+                    end
+                end
+                r = b - A*x;
+                this.rs(iter) = norm(r(r>0));
+            end  
+            %{
+            for iter = 201:this.itermax
+                for i = 1 : n
+                    ri = b(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                                        
+                    %Projection
+                    if(mod(i,3) == 0)
+                        if(x(i-2) < 0)
+                            x(i-2) = 0;
+                        end
+                        if (norm([x(i-1) x(i)]) > mu * x(i-2))
+                            scale = mu * x(i-2) / norm([x(i-1) x(i)]);
+                            x(i-1) = scale * x(i-1);
+                            x(i) = scale * x(i);
+                        end
                     end
                 end
                 this.rs(iter) = norm(b - A*x);
-            end  
+            end
+            %}
         end
 
+        function x = Shock_Propagation_Mix(this, L,Lsp, b, blocks, mu)
+            n = size(b,1);
+            x = zeros(n,1);
+            this.rs = zeros(this.itermax*2,1);
+            layers = length(blocks);
+            A = L*L';
+            %Lsp(73:end,:) = L(73:end,:);
+            Asp = L*Lsp';
+            AspT = Asp';
+            for outer_iter = 1:6
+                r = b - A*x;
+                dx = zeros(n,1);
+                for l = 1:layers
+                    for iter = 1:250
+                        for i = blocks{l}
+                            ri = r(i) - Asp(i,:) * dx;
+                            dx(i) = dx(i) + ri ./ Asp(i,i); 
+                            %{
+                            if(mod(i,3) == 0)
+                                if(x(i-2) + dx(i-2) < 0)
+                                    dx(i-2) = -x(i-2);
+                                end
+                                if (norm([x(i-1) + dx(i-1) x(i) + dx(i)]) > mu * (x(i-2)+dx(i-2)))
+                                    scale =  mu * (x(i-2)+dx(i-2)) / norm([x(i-1) + dx(i-1) x(i) + dx(i)]);
+                                    dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
+                                    dx(i) = scale * (x(i) + dx(i)) - x(i);
+                                end
+                            end
+                            %}
+                        end
+                        this.rs((outer_iter-1)*500 + iter) = norm(b - A*(x+dx));
+                    end
+                end
+                %{
+                for iter = 1:500
+                    for i = 49:n
+                        ri = r(i) - Asp(i,:) * dx;
+                        dx(i) = dx(i) + ri ./ Asp(i,i); 
+                        if(mod(i,3) == 0)
+                            if(x(i-2) + dx(i-2) < 0)
+                                dx(i-2) = -x(i-2);
+                            end
+                            if (norm([x(i-1) + dx(i-1) x(i) + dx(i)]) > mu * (x(i-2)+dx(i-2)))
+                                scale =  mu * (x(i-2)+dx(i-2)) / norm([x(i-1) + dx(i-1) x(i) + dx(i)]);
+                                dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
+                                dx(i) = scale * (x(i) + dx(i)) - x(i);
+                            end
+                        end
+                    end
+                    this.rs((outer_iter-1)*1000 + iter) = norm(b - A*(x+dx));
+                end
+                %}
+                rsp = r - tril(Asp - AspT) * dx;
+                %rsp = b - (A - AspT) * x;
+                %x = pinv(AspT)*rsp;
+                %x = zeros(n,1);
+                for l = layers:-1:1
+                    for iter = 251:500
+                        for i = blocks{l}
+                            ri = rsp(i) - AspT(i,:) * dx;
+                            dx(i) = dx(i) + ri ./ AspT(i,i);
+                
+                            if(mod(i,3) == 0)
+                                if(x(i-2) + dx(i-2) < 0)
+                                    dx(i-2) = -x(i-2);
+                                end
+                                if (norm([x(i-1) + dx(i-1) x(i) + dx(i)]) > mu * (x(i-2)+dx(i-2)))
+                                    scale =  mu * (x(i-2)+dx(i-2)) / norm([x(i-1) + dx(i-1) x(i) + dx(i)]);
+                                    dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
+                                    dx(i) = scale * (x(i) + dx(i)) - x(i);
+                                end
+                            end
+                        end
+                        this.rs((outer_iter-1)*500 + iter) = norm(b - A*(x+dx));
+                    end
+                end
+                %{
+                for iter = 501:1000
+                    for i = 1:48
+                        ri = rsp(i) - AspT(i,:) * dx;
+                        dx(i) = dx(i) + ri ./ AspT(i,i);
+            
+                        if(mod(i,3) == 0)
+                            if(x(i-2) + dx(i-2) < 0)
+                                dx(i-2) = -x(i-2);
+                            end
+                            if (norm([x(i-1) + dx(i-1) x(i) + dx(i)]) > mu * (x(i-2)+dx(i-2)))
+                                scale =  mu * (x(i-2)+dx(i-2)) / norm([x(i-1) + dx(i-1) x(i) + dx(i)]);
+                                dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
+                                dx(i) = scale * (x(i) + dx(i)) - x(i);
+                            end
+                        end
+                    end
+                    this.rs((outer_iter-1)*1000 + iter) = norm(b - A*(x+dx));
+                end
+                %}
+                x = x+ dx;
+                %r = b - A*x;
+                %unsatisfied_ind = abs(r)>1e-6;
+                %Asp(unsatisfied_ind,unsatisfied_ind) = A(unsatisfied_ind, unsatisfied_ind);
+                %Asp = A;
+                %AspT = Asp';
+            end
+        end
+
+        function x = Shock_Propagation_lbl(this, A, Asp, b, d, blocks, mu)
+            n = size(b,1);
+            x = zeros(n,1);
+            upiterMax = 150;
+            downiterMax = 150;
+            substeps = 150;
+            iterTotal = 0;
+            upwardSuccess = true;
+            downwardSuccess = true;
+            this.rs = zeros(this.itermax,1);
+            AspT = Asp';
+            layers = length(blocks);
+            r = b - A * x;
+            dx = zeros(n,1);
+            nc = 0;
+
+            for l = 1:layers
+                nind = blocks{l};
+                nind = nind(1:3:end);
+                tind = blocks{l};
+                tind = tind(~(mod(tind,3) == 1));
+                for iter = 1:upiterMax
+                    rsl0 = r(blocks{l})-Asp(blocks{l},:)*dx;
+
+                    for i = nind
+                        ri = r(i) - Asp(i,:) * dx;
+                        dx(i) = dx(i) + ri ./ Asp(i,i); 
+                        
+                        if(mod(i,3) == 1)
+                            if(x(i) + dx(i) < 0)
+                                dx(i) = -x(i);
+                            end
+                        end
+                        
+                        nc = nc + 1;
+                        if(mod(nc,n)==0)
+                            rsg = b - A*(x+dx);
+                            this.rs(nc/n) = norm(rsg(rsg>0));
+                        end
+                    end
+
+                    for i = tind
+                        ri = r(i) - Asp(i,:) * dx;
+                        dx(i) = dx(i) + ri ./ Asp(i,i); 
+                        
+                        if(mod(i,3) == 0)
+                            if(x(i-2) + dx(i-2) < 0)
+                                dx(i-2) = -x(i-2);
+                            end
+                            if (norm([x(i-1) + dx(i-1) x(i) + dx(i)]) > mu * (x(i-2)+dx(i-2)))
+                                scale =  mu * (x(i-2)+dx(i-2)) / norm([x(i-1) + dx(i-1) x(i) + dx(i)]);
+                                dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
+                                dx(i) = scale * (x(i) + dx(i)) - x(i);
+                            end
+                        end
+                        
+                        nc = nc + 1;
+                        if(mod(nc,n)==0)
+                            rsg = b - A*(x+dx);
+                            this.rs(nc/n) = norm(rsg(rsg>0));
+                        end
+                    end
+
+                    rsl = r(blocks{l})-Asp(blocks{l},:)*dx;
+                    if(norm(rsl-rsl0) < 1e-4)
+                        break;
+                    end
+                end
+                deltax = -Asp(blocks{l},:)*dx;
+                [mr,mind] = min(rsl(1:3:end));
+                if(l>1 && l < layers && mr < -1 && deltax((mind-1)*3+1) < -1)
+                    upwardSuccess = false;
+                    break;
+                end
+            end
+            rsp = r - tril(Asp - AspT) * dx;
+            %rsp = b - (A - AspT) * x;
+            %x = pinv(AspT)*rsp;
+            %x = zeros(n,1);
+            if(upwardSuccess)
+                for l = layers:-1:1
+                    nind = blocks{l};
+                    nind = nind(1:3:end);
+                    tind = blocks{l};
+                    tind = tind(~(mod(tind,3) == 1));
+                    for iter = 1:downiterMax
+                        rsl0 = rsp(blocks{l})-AspT(blocks{l},:)*dx;
+    
+                        for i = nind
+                            ri = rsp(i) - AspT(i,:) * dx;
+                            dx(i) = dx(i) + ri ./ AspT(i,i); 
+                            if(mod(i,3) == 1)
+                                if(x(i) + dx(i) < 0)
+                                    dx(i) = -x(i);
+                                end
+                            end
+                            nc = nc + 1;
+                            if(mod(nc,n)==0)
+                                rsg = b - A*(x+dx);
+                                this.rs(nc/n) = norm(rsg(rsg>0));
+                            end
+                        end
+    
+                        for i = tind
+                            ri = rsp(i) - AspT(i,:) * dx;
+                            dx(i) = dx(i) + ri ./ AspT(i,i); 
+                            
+                            if(mod(i,3) == 0)
+                                if(x(i-2) + dx(i-2) < 0)
+                                    dx(i-2) = -x(i-2);
+                                end
+                                if (norm([x(i-1) + dx(i-1) x(i) + dx(i)]) > mu * (x(i-2)+dx(i-2)))
+                                    scale =  mu * (x(i-2)+dx(i-2)) / norm([x(i-1) + dx(i-1) x(i) + dx(i)]);
+                                    dx(i-1) = scale * (x(i-1) + dx(i-1)) - x(i-1);
+                                    dx(i) = scale * (x(i) + dx(i)) - x(i);
+                                end
+                            end
+                            
+                            nc = nc + 1;
+                            if(mod(nc,n)==0)
+                                rsg = b - A*(x+dx);
+                                this.rs(nc/n) = norm(rsg(rsg>0));
+                            end
+                        end
+                        rsl = rsp(blocks{l})-AspT(blocks{l},:)*dx;
+                        if(norm(rsl-rsl0) < 1e-4)
+                            break;
+                        end
+                    end
+                    deltax = -AspT(blocks{l},:)*dx;
+                    [mr,mind] = min(rsl(1:3:end));
+                    if(l>1 && l < layers && mr < -1 && deltax((mind-1)*3+1) < -1)
+                        downwardSuccess = false;
+                        break;
+                    end
+                end
+            end
+            x = x + dx;
+            iterTotal = max(ceil(nc/n),1);
+            this.itercount = iterTotal;
+            rsg = b - A*x;
+            this.rs(iterTotal) = norm(rsg(rsg>0));
+            
+            if(~downwardSuccess||~upwardSuccess)
+                %{
+               for iter = 1:GSiterMax
+                   for i = 1 : 3 : n
+                        ri = b(i) - A(i,:)*x;
+                        x(i) = x(i) + ri / A(i,i);
+                        if(x(i) < 0)
+                            x(i) = 0;
+                        end
+                    end
+    
+                    for i = 1 : n
+                        if(mod(i,3) == 1)
+                            continue;
+                        end
+    
+                        ri = b(i) - A(i,:)*x;
+                        x(i) = x(i) + ri / A(i,i);
+                       
+                        %Projection
+                        if(mod(i,3) == 0)
+                            if(x(i-2) < 0)
+                                x(i-2) = 0;
+                            end
+                            if (norm([x(i-1) x(i)]) > mu * x(i-2))
+                                scale = mu * x(i-2) / norm([x(i-1) x(i)]);
+                                x(i-1) = scale * x(i-1);
+                                x(i) = scale * x(i);
+                            end
+                        end
+                    end
+                    r = b - A*x;
+                    this.rs(iterTotal + iter) = norm(r(r>0));
+                    if(abs(this.rs(iterTotal + iter) - this.rs(iterTotal + iter-1)) < 1e-2)
+                        break;
+                    end
+               end 
+                %}
+
+                lambdax = zeros(n,1);
+                x = zeros(n,1);
+                cpv0 = -(b + d);
+                d = d * substeps;
+                bsub = - (cpv0 + d);
+                bsub = bsub - (cpv0+A*x);
+                lambdax = lambdax + x / substeps;
+                for iter = 1:substeps
+                    for l = 1:layers
+                        nind = blocks{l};
+                        nind = nind(1:3:end);
+                        tind = blocks{l};
+                        tind = tind(~(mod(tind,3) == 1));
+                        for i = nind
+                            ri = bsub(i) - A(i,:)*x;
+                            x(i) = x(i) + ri / A(i,i);
+                            if(x(i) < 0)
+                                x(i) = 0;
+                            end
+                        end
+    
+                        for i = tind
+                            ri = bsub(i) - A(i,:)*x;
+                            x(i) = x(i) + ri / A(i,i); 
+                            if (mod(i,3) == 0 && norm([x(i-1) x(i)]) > mu * x(i-2))
+                                scale = mu * x(i-2) / norm([x(i-1) x(i)]);
+                                x(i-1) = scale * x(i-1);
+                                x(i) = scale * x(i);
+                            end
+                        end
+                    end
+                    bsub = bsub - (cpv0+A*x);
+                    lambdax = lambdax + x / substeps;
+                    rx = b - A*lambdax;
+                    this.rs(iterTotal + iter) = norm(rx(rx>0));
+                end
+                x = lambdax;
+                this.itercount = iterTotal + substeps;
+            end
+        end
 
         %%
         function draw(this, name)

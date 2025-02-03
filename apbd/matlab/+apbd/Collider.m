@@ -24,6 +24,7 @@ classdef Collider < handle
 			this.collisions = cell(1,(this.bodyNum+1)*this.bodyNum/2);
             groundBody = apbd.BodyRigid(apbd.ShapeCuboid([1 1 0.1]),Inf);
             groundBody.layer = 0;
+            groundBody.index = 0;
             for i = 1 : this.bodyNum
                 for j = i : this.bodyNum
                     index = (2*this.bodyNum+2-i)*(i-1)/2 + j - i + 1;
@@ -43,6 +44,12 @@ classdef Collider < handle
 			this.bpList2 = {};
             this.activeCollisions = [];
             this.groundBodyIndex = [];
+            for i = 1:this.bodyNum
+                if(isinf(this.model.bodies{i}.Mp))
+                    this.groundBodyIndex(end+1) = i;
+                    this.model.bodies{i}.layer = 1;
+                end
+            end
 
 			this.broadphase();
 			this.narrowphase();
@@ -132,7 +139,11 @@ classdef Collider < handle
                     this.groundBodyIndex(end+1) = body.index;
                     body.layer = 1;
                     this.activeCollisions(end+1) = body.index;
-                    this.collisions{body.index}.broken = true;
+                    if(this.model.useContactCaching)
+                        this.collisions{body.index}.broken = false;
+                    else
+                        this.collisions{body.index}.broken = true;
+                    end
                     body.collisions(end+1) = body.index;
                 end
             end
@@ -155,7 +166,11 @@ classdef Collider < handle
                     body1.neighbors(end+1) = body2.index;
                     body2.neighbors(end+1) = body1.index;
                     this.activeCollisions(end+1) = index;
-                    this.collisions{index}.broken = true;
+                    if(this.model.useContactCaching)
+                        this.collisions{index}.broken = false;
+                    else
+                        this.collisions{index}.broken = true;
+                    end
                     body1.collisions(end+1) = index;
                     body2.collisions(end+1) = index;
                 end

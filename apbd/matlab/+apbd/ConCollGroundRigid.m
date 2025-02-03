@@ -19,6 +19,7 @@ classdef ConCollGroundRigid < apbd.ConColl
         mu
         biasCoefficient
         collision
+        dlambdaNor
 	end
 
 	methods
@@ -35,6 +36,7 @@ classdef ConCollGroundRigid < apbd.ConColl
             this.raXn = zeros(3,3);
             this.delLinVel1 = zeros(3,3);
             this.angDelta1 = zeros(3,3);
+            this.dlambdaNor = zeros(3,1);
             this.collision = collision;
 		end
 
@@ -48,6 +50,7 @@ classdef ConCollGroundRigid < apbd.ConColl
             else
                 this.biasCoefficient = -1 / hs;
             end
+            this.biasCoefficient = -1 / hs;
             this.lambda = zeros(3,1);
             [tanx,tany] = apbd.ConColl.generateTangents(this.nw);
             this.contactFrame = [this.nw, tanx, tany];
@@ -120,7 +123,7 @@ classdef ConCollGroundRigid < apbd.ConColl
                 sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.d;
                 bias = sep * this.biasCoefficient;
                 normalVel = this.contactFrame(:,i) .* this.body.v + this.body.w .* this.raXn(:,i);
-                dlambdaTan(i-1) =  (bias / this.w1(i) - sum(normalVel) / this.w1(i))*0.8;
+                dlambdaTan(i-1) =  (bias / this.w1(i) - sum(normalVel) / this.w1(i));
             end
             dlambdas = [0;dlambdaTan];
             %dlambdas = this.wMat \ b;

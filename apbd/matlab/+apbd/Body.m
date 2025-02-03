@@ -23,6 +23,7 @@ classdef (Abstract) Body < handle
 		% Drawing etc.
 		index    % Body index
         layer    % Which contact layer this body is
+        colIndices % Corresponding col indices in matrix L
         neighbors % Indices for neighobor bodies
         collisions
         LTx      % Buffer for storing results from L'*x (Matrix(6x3) * vector(3x1))

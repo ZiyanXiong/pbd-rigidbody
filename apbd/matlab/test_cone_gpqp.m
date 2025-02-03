@@ -15,12 +15,12 @@ x = zeros(length(b),1);
 [x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu);
 %}
 
-x = [1121.24529747998
-335.837393354243
--0.00136874309968386];
-g = -[7.04935310125165e-09
-2.95481604064380e-08
--2.84422996277845e-07]';
+x = [2.44999999992264
+-1.01070349431031e-10
+-7.94194419907315e-11];
+g = -[4.26325641456060e-13
+-8.09368754905583e-10
+-1.06788792015864e-09]';
 mu = 0.5;
 t = rayConeIntersection(x, g, mu);
 
@@ -68,7 +68,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = -C/B;
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
 
@@ -82,7 +82,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = -B / (2 * A);
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
 
@@ -101,7 +101,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = t1;
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
 
@@ -111,7 +111,7 @@ function t = rayConeIntersection(x, g, mu)
         else
             t = Inf;
         end
-        t = t * gnorm;
+        t = t / gnorm;
         return;
     end
     
@@ -123,5 +123,5 @@ function t = rayConeIntersection(x, g, mu)
     else
         t = max(t1,t2);
     end
-    t = t * gnorm;
+    t = t / gnorm;
 end

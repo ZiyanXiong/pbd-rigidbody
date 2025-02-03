@@ -106,6 +106,10 @@ for iter = 1:iterNum
     %[xZ,~,~,CGiter,~] = pcg_rs(G(neqIndex, neqIndex), -cZ,1e-6,CGiterNum,W_zz,[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex));
     [xZ,~,~,CGiter,~] = pcr1(G(neqIndex, neqIndex), -cZ, 1e-8, CGiterNum,diag(W_zz),[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex), mu);
     %[xZ,~,~,CGiter,~] = gs(G(neqIndex, neqIndex), -cZ, 1e-8, 20,diag(W_zz),[],xZ,lNeq,uNeq,projectionOpts,find(neqIndex), mu);
+
+    %R = chol(G(neqIndex, neqIndex) + 1e-6*eye(length(find(neqIndex))));
+    %[xZ,~,~,CGiter,~] = pcg(G(neqIndex, neqIndex),-cZ,1e-8,CGiterNum,R',R, xZ);
+
     x(neqIndex) = xZ;
     CGiterVec = [CGiterVec, CGiter];
 
@@ -125,7 +129,7 @@ for iter = 1:iterNum
         %}
         
         if (norm([x(i+1) x(i+2)]) > mu * x(i))
-            scale = (mu * x(i))*(1-1e-6) / norm([x(i+1) x(i+2)]);
+            scale = (mu * x(i)) / norm([x(i+1) x(i+2)]);
             x(i+1) = scale * x(i+1);
             x(i+2) = scale * x(i+2);
         end

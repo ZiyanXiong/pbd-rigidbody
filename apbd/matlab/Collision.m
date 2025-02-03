@@ -14,6 +14,7 @@ classdef Collision < handle
         J1I
         J2I     % If this is ground collision, J2 will be null
         b
+        d
         mu
 
         %% Varibles for GPQP
@@ -55,7 +56,7 @@ classdef Collision < handle
 
         %%
         function setContacts(this,cdata)
-            this.contactNum = length(cdata);
+            this.contactNum = min(length(cdata),8);
             for i = 1 : this.contactNum
                 this.contacts{i}.setData(cdata(i));
             end
@@ -63,6 +64,7 @@ classdef Collision < handle
             this.J1I = zeros(n,6);
             this.J2I = zeros(n,6);
             this.b = zeros(n,1);
+            this.d = zeros(n,1);
 
             this.lambda = zeros(n,1);
             this.lambdac = zeros(n,1);
@@ -119,6 +121,21 @@ classdef Collision < handle
         end
 
         %%
+        function compute_b(this)
+            for i = 1:this.contactNum
+                rows = 3*(i-1) + 1: 3*i;
+                this.b(rows) = -this.constraints{i}.evalCs();
+            end
+        end
+        %%
+        function compute_d(this)
+            for i = 1:this.contactNum
+                rows = 3*(i-1) + 1: 3*i;
+                this.d(rows) = this.constraints{i}.contactFrame'* this.constraints{i}.dt;
+            end
+        end
+
+        %%
         function solveCollisionNor(this, minPenetration)
             for i = 1 : this.contactNum
                 this.constraints{i}.solveNorPos(minPenetration);
@@ -171,7 +188,8 @@ classdef Collision < handle
                     this.lambda(i) = this.lambdad(i:i+2)' * this.lambda(i:i+2);
                 end
             end
-            this.Minv_cg = ones(3*this.contactNum,1);
+            %this.Minv_cg = ones(3*this.contactNum,1);
+            this.Minv_cg = 1 ./ diag(this.J1I_cg * this.J1I_cg' + this.J2I_cg * this.J2I_cg');
         end
 
         %%
