@@ -5,8 +5,8 @@ model.init();
 model.simulate();
 %}
 
-for i = 13
-    model = SIG25Model(i,1/100,150,2);
+for i = 11
+    model = SIG25Model(i,1/60,150,2);
     model.init();
     model.drawHz = 0;
     model.simulate();
@@ -20,15 +20,21 @@ for i = 13
     
     iterVec = model.iterVec;
     rVec = model.rVec;
-    save(strcat(model.resultFolder, fileName), 'iterVec', 'rVec');
+    save(strcat(model.resultFolder, fileName), 'iterVec', 'rVec'); 
     %SIG25Plot(i, false);
 end
 
 
 %{
-for i = 1
+for i = 2:12
+    SIG25Plot(i, false);
+end
+%}
+
+%{
+for i = 2:12
     model = SIG25Model(i,1/60,150,2);
-    model.drawHz = 60;
+    model.drawHz = 1;
     model.init();
     model.simulate();
     if(model.solverType == 1)
@@ -44,7 +50,7 @@ for i = 1
     save(strcat(model.resultFolder, fileName), 'iterVec', 'rVec');
 
     for j = [50,150,500]
-        model = SIG25Model(i,1/60,j,3);
+        model = SIG25Model(i,1/60,j,1);
         model.drawHz = 1;
         model.init();
         model.simulate();

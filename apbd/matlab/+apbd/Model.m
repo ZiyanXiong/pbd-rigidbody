@@ -116,8 +116,8 @@ classdef Model < handle
 		function simulate(this)
 			while this.k < this.steps
 				this.ks = 0;
-                if this.k == 2
-                    fprintf("Pause.");
+                if this.k == 30
+                    %fprintf("Pause.");
                 end
                 if(this.solverType == 3)
                     this.solveConTGS();
@@ -473,7 +473,7 @@ classdef Model < handle
                 %lambdas = solver.Shock_Propagation_re(A, Asp, b, blocks, mu);
                 %lambdas = solver.Shock_Propagation(A, b, Asp, mu);
                 if(this.solverType ==  1)
-                    lambdas = solver.Temporal_Gauss_Sidiel(A, b, mu, d, this.substeps);
+                    lambdas = solver.Temporal_Gauss_Sidiel(A, b, d, blocks, mu, this.substeps);
                 else
                     lambdas = solver.Shock_Propagation_lbl(A, Asp, b, d, blocks, mu);
                 end

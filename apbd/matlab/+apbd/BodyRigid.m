@@ -211,18 +211,14 @@ classdef BodyRigid < apbd.Body
             this.x0 = this.x;
 			v = this.v; % pdot
 			q = this.x(1:4);
-			p = this.x(5:7);
-            R = se3.qToMat(q);
+
             %R = eye(3);
 			w = this.w; % angular velocity in body coords
 			%f = zeros(3,1); % translational force in world space
 			t = zeros(3,1); % angular torque in body space
 			m = this.Mp; % scalar mass
-            if(isinf(m))
-                I = diag(this.Mr);
-            else
-			    I = R * diag(this.Mr) * R'; % inertia in world space;
-            end
+
+            I = diag(this.Mr);
 			Iw = I*w; % angular momentum in body space
 			f = f + m*grav; % Gravity
 			t = t + se3.cross(Iw,w); % Coriolis

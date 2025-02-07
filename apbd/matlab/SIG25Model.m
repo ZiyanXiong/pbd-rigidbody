@@ -996,7 +996,7 @@ switch(modelID)
 
 		model.view = [0 0];
 
-        layers = 15;
+        layers = 10;
         for l = 1:layers
 		    for i = 1 : 5                
 			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
@@ -1021,12 +1021,12 @@ switch(modelID)
         R = se3.aaToMat([0 0 1], 0);
 	    E = eye(4);
 	    x = -0.0 *w;
-	    y = 10*w;
-	    z =-0.5*w + w*13;
+	    y = 14*w;
+	    z =-0.5*w + w*7;
         E(1:3,1:3) = R;
 	    E(1:3,4) = R * [x y z]';
 	    model.bodies{end}.setInitTransform(E);
-        model.bodies{end}.setInitVelocity([0 0 0 0 -750 250]');
+        model.bodies{end}.setInitVelocity([0 0 0 0 -600 150]');
         
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
         if ~exist(model.resultFolder, 'dir')

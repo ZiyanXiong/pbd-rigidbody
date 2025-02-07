@@ -61,40 +61,38 @@ classdef ConstraintSolver < handle
             %save('GS_lambda.mat',"lambda");
         end
 
-        function [lambdax] = Temporal_Gauss_Sidiel(this, A, b, mu, d, substeps)
+        function [lambdax] = Temporal_Gauss_Sidiel(this, A, b, d, blocks, mu, substeps)
             n = size(b,1);
-            x = zeros(n,1);
+            layers = length(blocks);
             lambdax = zeros(n,1);
-            this.rs = zeros(this.itermax,1);
+            x = zeros(n,1);
             cpv0 = -(b + d);
             d = d * substeps;
             bsub = - (cpv0 + d);
+            bsub = bsub - (cpv0+A*x);
+            lambdax = lambdax + x / substeps;
             for iter = 1:substeps
-                for i = 1 : 3 : n
-                    ri = bsub(i) - A(i,:)*x;
-                    x(i) = x(i) + ri / A(i,i);
-                    if(x(i) < 0)
-                        x(i) = 0;
+                for l = 1:layers
+                    nind = blocks{l};
+                    nind = nind(1:3:end);
+                    tind = blocks{l};
+                    tind = tind(~(mod(tind,3) == 1));
+                    for i = nind
+                        ri = bsub(i) - A(i,:)*x;
+                        x(i) = x(i) + ri / A(i,i);
+                        if(x(i) < 0)
+                            x(i) = 0;
+                        end
                     end
-                end
 
-                for i = 1 : 3: n
-                    %{
-                    ri = bsub(i) - A(i,:)*x;
-                    x(i) = x(i) + ri / A(i,i);
-                    if(x(i) < 0)
-                        x(i) = 0;
-                    end
-                    %}
-                    ri1 = bsub(i+1) - A(i+1,:)*x;
-                    x(i+1) = x(i+1) + ri1 / A(i+1,i+1);
-                    ri2 = bsub(i+2) - A(i+2,:)*x ;
-                    x(i+2) = x(i+2) + ri2 / A(i+2,i+2);
-               
-                    if (norm([x(i+1) x(i+2)]) > mu * x(i))
-                        scale = mu * x(i) / norm([x(i+1) x(i+2)]);
-                        x(i+1) = scale * x(i+1);
-                        x(i+2) = scale * x(i+2);
+                    for i = tind
+                        ri = bsub(i) - A(i,:)*x;
+                        x(i) = x(i) + ri / A(i,i); 
+                        if (mod(i,3) == 0 && norm([x(i-1) x(i)]) > mu * x(i-2))
+                            scale = mu * x(i-2) / norm([x(i-1) x(i)]);
+                            x(i-1) = scale * x(i-1);
+                            x(i) = scale * x(i);
+                        end
                     end
                 end
                 bsub = bsub - (cpv0+A*x);
@@ -611,9 +609,9 @@ classdef ConstraintSolver < handle
                         break;
                     end
                 end
+                rsln = rsl(1:3:end);
                 deltax = -Asp(blocks{l},:)*dx;
-                [mr,mind] = min(rsl(1:3:end));
-                if(l>1 && l < layers && mr < -1 && deltax((mind-1)*3+1) < -1)
+                if(l>1 && l < layers && ~all(rsln(deltax(1:3:end)<-2e-2) > -1e-2))
                     upwardSuccess = false;
                     break;
                 end
@@ -672,9 +670,9 @@ classdef ConstraintSolver < handle
                             break;
                         end
                     end
+                    rsln = rsl(1:3:end);
                     deltax = -AspT(blocks{l},:)*dx;
-                    [mr,mind] = min(rsl(1:3:end));
-                    if(l>1 && l < layers && mr < -1 && deltax((mind-1)*3+1) < -1)
+                    if(l>1 && l < layers && ~all(rsln(deltax(1:3:end)<-2e-2) > -1e-2))
                         downwardSuccess = false;
                         break;
                     end
