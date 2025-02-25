@@ -92,7 +92,9 @@ classdef Collider < handle
             layers = unique(conLayers);
             sortedCollisions = {};
             for i = 1:length(layers)
-                sortedCollisions{end+1} = this.activeCollisions(conLayers==layers(i));
+                if(mod(layers(i),2)==1)
+                    sortedCollisions{end+1} = [this.activeCollisions(conLayers==layers(i)), this.activeCollisions(conLayers==layers(i)+1)];
+                end
             end
             this.activeCollisions = sortedCollisions;
         end

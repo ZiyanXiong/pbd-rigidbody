@@ -19,7 +19,7 @@ classdef ConCollGroundRigid < apbd.ConColl
         mu
         biasCoefficient
         collision
-        dlambdaNor
+        dlambdas
 	end
 
 	methods
@@ -36,7 +36,7 @@ classdef ConCollGroundRigid < apbd.ConColl
             this.raXn = zeros(3,3);
             this.delLinVel1 = zeros(3,3);
             this.angDelta1 = zeros(3,3);
-            this.dlambdaNor = zeros(3,1);
+            this.dlambdas = zeros(3,1);
             this.collision = collision;
 		end
 
@@ -44,12 +44,6 @@ classdef ConCollGroundRigid < apbd.ConColl
 		function init(this, h, hs)
             this.d = this.body.transformPoint(this.xl) - this.xw;
             this.dt = this.d / h;
-            scale = min([0.8 2 * sqrt(hs / h)]);
-            if this.nw' * this.d <= 0
-                this.biasCoefficient = -scale / hs;
-            else
-                this.biasCoefficient = -1 / hs;
-            end
             this.biasCoefficient = -1 / hs;
             this.lambda = zeros(3,1);
             [tanx,tany] = apbd.ConColl.generateTangents(this.nw);
@@ -58,7 +52,7 @@ classdef ConCollGroundRigid < apbd.ConColl
 
 			m1 = this.body.Mp;
 			I1 = this.body.Mr;
-			q1 = this.body.x0(1:4);
+			q1 = this.body.x(1:4);
 			rl1 = this.xl;
 
             for i = 1:3
@@ -81,11 +75,6 @@ classdef ConCollGroundRigid < apbd.ConColl
         end
 
         %%
-        function C = evalC(this)
-            C = this.nw' * this.body.v + this.raXn(:,1)' * this.body.w + this.nw'* this.dt;
-        end
-
-        %%
         function Cs = evalCs(this)
             Cs = this.contactFrame' * this.body.v + this.raXn' * this.body.w + this.contactFrame'* this.dt;
         end
@@ -98,45 +87,127 @@ classdef ConCollGroundRigid < apbd.ConColl
         end
 
 		%%
-        function solveNorPos(this, minpenetration)
-            %sep = this.nw' * (this.body.transformPoint(this.xl) - this.xw0) + this.d;
-            sep = this.nw' * this.body.deltaLinDt + this.raXn(:,1)' * this.body.deltaAngDt + this.nw'* this.d;
-            sep = max(minpenetration,sep);
-            bias = sep * this.biasCoefficient;
-            %normalVel = this.nw' * this.body.computePointVel(this.xl);
-            normalVel = this.nw .* this.body.v + this.body.w .* this.raXn(:,1);
-            this.dlambdaNor =  bias / this.w1(1) - sum(normalVel) / this.w1(1);
-            lambda = this.lambda(1) + this.dlambdaNor;
-            if(lambda < 0)
-                this.dlambdaNor = - this.lambda(1);
-                this.collision.broken = true;
+        function solveNorPos(this, withSP)
+            if(~withSP)
+                sep = this.nw' * this.body.deltaLinDt + this.raXn(:,1)' * this.body.deltaAngDt + this.nw'* this.d;
+                bias = sep * this.biasCoefficient;
+                %normalVel = this.nw' * this.body.computePointVel(this.xl);
+                normalVel = this.nw .* this.body.v + this.body.w .* this.raXn(:,1);
+                this.dlambdas(1) =  bias / this.w1(1) - sum(normalVel) / this.w1(1);
+                lambda = this.lambda(1) + this.dlambdas(1);
+                if(lambda < 0)
+                    this.dlambdas(1) = - this.lambda(1);
+                    this.collision.broken = true;
+                end
+                this.lambda(1) = this.lambda(1) + this.dlambdas(1);
+                this.body.v = this.body.v + this.dlambdas(1) * this.delLinVel1(:,1);
+                this.body.w = this.body.w + this.dlambdas(1) * this.angDelta1(:,1);
+            else
+                sep = this.nw' * this.body.deltaLinDt + this.raXn(:,1)' * this.body.deltaAngDt + this.nw'* this.dt;
+                bias = -sep;
+                %normalVel = this.nw' * this.body.computePointVel(this.xl);
+                normalVel = this.nw .* this.body.v + this.body.w .* this.raXn(:,1);
+                this.dlambdas(1) =  bias / this.w1(1) - sum(normalVel) / this.w1(1);
+                lambda = this.lambda(1) + this.dlambdas(1);
+                if(lambda < 0)
+                    this.dlambdas(1) = - this.lambda(1);
+                    this.collision.broken = true;
+                end
+                this.lambda(1) = this.lambda(1) + this.dlambdas(1);
+                this.body.v = this.body.v + this.dlambdas(1) * this.delLinVel1(:,1);
+                this.body.w = this.body.w + this.dlambdas(1) * this.angDelta1(:,1);
             end
-            this.lambda(1) = this.lambda(1) + this.dlambdaNor;
-            this.body.v = this.body.v + this.dlambdaNor * this.delLinVel1(:,1);
-            this.body.w = this.body.w + this.dlambdaNor * this.angDelta1(:,1);
         end
 
 		%%
-        function solveTanVel(this)
+        function solveTanPos(this, withSP)
+            dlambdaTan = zeros(2,1);
+            if(~withSP)
+                for i = 2:3
+                    sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.d;
+                    bias = sep * this.biasCoefficient;
+                    normalVel = this.contactFrame(:,i) .* this.body.v + this.body.w .* this.raXn(:,i);
+                    dlambdaTan(i-1) =  (bias / this.w1(i) - sum(normalVel) / this.w1(i));
+                end
+                dlambdaTan = [0;dlambdaTan];
+                %dlambdas = this.wMat \ b;
+                lambdas = this.lambda + dlambdaTan;
+                frictionRadius = this.mu * lambdas(1);
+                if(norm(lambdas(2:3)) > frictionRadius)
+                    lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
+                    dlambdaTan = lambdas - this.lambda; 
+                    this.collision.broken = true;
+                end
+                this.lambda = this.lambda + dlambdaTan;
+                this.body.v = this.body.v + this.delLinVel1 * dlambdaTan;
+                this.body.w = this.body.w + this.angDelta1 * dlambdaTan;
+                this.dlambdas(2:3) = dlambdaTan(2:3);
+            else
+                for i = 2:3
+                    sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.dt;
+                    bias = -sep;
+                    normalVel = this.contactFrame(:,i) .* this.body.v + this.body.w .* this.raXn(:,i);
+                    dlambdaTan(i-1) =  (bias / this.w1(i) - sum(normalVel) / this.w1(i));
+                end
+                dlambdaTan = [0;dlambdaTan];
+                %dlambdas = this.wMat \ b;
+                lambdas = this.lambda + dlambdaTan;
+                frictionRadius = this.mu * lambdas(1);
+                if(norm(lambdas(2:3)) > frictionRadius)
+                    lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
+                    dlambdaTan = lambdas - this.lambda; 
+                    this.collision.broken = true;
+                end
+                this.lambda = this.lambda + dlambdaTan;
+                this.body.v = this.body.v + this.delLinVel1 * dlambdaTan;
+                this.body.w = this.body.w + this.angDelta1 * dlambdaTan;
+                this.dlambdas(2:3) = dlambdaTan(2:3);
+            end
+        end
+
+		%%
+        function solveNorVel(this, substeps)
+            sep = this.nw' * this.body.deltaLinDt + this.raXn(:,1)' * this.body.deltaAngDt;
+            bias = -sep * substeps;
+            %normalVel = this.nw' * this.body.computePointVel(this.xl);
+            normalVel = this.nw .* this.body.v + this.body.w .* this.raXn(:,1);
+            this.dlambdas(1) =  bias / this.w1(1) - sum(normalVel) / this.w1(1);
+            lambda = this.lambda(1) + this.dlambdas(1);
+            if(lambda < 0)
+                this.dlambdas(1) = - this.lambda(1);
+                this.collision.broken = true;
+            end
+            this.lambda(1) = this.lambda(1) + this.dlambdas(1);
+            this.body.v = this.body.v + this.dlambdas(1) * this.delLinVel1(:,1);
+            this.body.w = this.body.w + this.dlambdas(1) * this.angDelta1(:,1);
+        end
+
+		%%
+        function solveTanVel(this,substeps)
             dlambdaTan = zeros(2,1);
             for i = 2:3
-                sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt + this.contactFrame(:,i)' * this.d;
-                bias = sep * this.biasCoefficient;
+                sep = this.contactFrame(:,i)' * this.body.deltaLinDt + this.raXn(:,i)' * this.body.deltaAngDt;
+                bias = -sep * substeps;
                 normalVel = this.contactFrame(:,i) .* this.body.v + this.body.w .* this.raXn(:,i);
                 dlambdaTan(i-1) =  (bias / this.w1(i) - sum(normalVel) / this.w1(i));
             end
-            dlambdas = [0;dlambdaTan];
+            dlambdaTan = [0;dlambdaTan];
             %dlambdas = this.wMat \ b;
-            lambdas = this.lambda + dlambdas;
+            lambdas = this.lambda + dlambdaTan;
             frictionRadius = this.mu * lambdas(1);
             if(norm(lambdas(2:3)) > frictionRadius)
                 lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
-                dlambdas = lambdas - this.lambda; 
+                dlambdaTan = lambdas - this.lambda; 
                 this.collision.broken = true;
             end
-            this.lambda = this.lambda + dlambdas;
-            this.body.v = this.body.v + this.delLinVel1 * dlambdas;
-            this.body.w = this.body.w + this.angDelta1 * dlambdas;
+            this.lambda = this.lambda + dlambdaTan;
+            this.body.v = this.body.v + this.delLinVel1 * dlambdaTan;
+            this.body.w = this.body.w + this.angDelta1 * dlambdaTan;
+            this.dlambdas(2:3) = dlambdaTan(2:3);
+        end
+
+        %%
+        function applyLambdaSP(this)
         end
 
 		%%

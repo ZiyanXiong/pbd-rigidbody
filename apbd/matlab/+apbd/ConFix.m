@@ -1,4 +1,4 @@
-classdef ConCollRigidRigid < apbd.ConColl
+classdef ConFix < apbd.ConColl
 	%ConCollRigidRigid Collision between two rigid bodies
 
 	properties
@@ -20,22 +20,20 @@ classdef ConCollRigidRigid < apbd.ConColl
         angDelta2 % Unit change for angular velocity matrix(3x3)
         raXn2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
         raXnI2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
-
-        mu
-        biasCoefficient
-        collision
         dlambdas
+
+        biasCoefficient
 	end
 
 	methods
 		%%
-        function this = ConCollRigidRigid(body1,body2, c, collision)
+        function this = ConFix(body1,body2, xw, nw)
 			this = this@apbd.ConColl();
 			this.body1 = body1;
 			this.body2 = body2;
-			this.nw = -c.nw;
-			this.x1 = c.x1;
-			this.x2 = c.x2;
+			this.nw = -nw;
+			this.x1 = body1.invTransformPoint(xw);
+			this.x2 = body2.invTransformPoint(xw);
 
             this.contactFrame = zeros(3,3);
 
@@ -50,31 +48,17 @@ classdef ConCollRigidRigid < apbd.ConColl
             this.angDelta2 = zeros(3,3);
 
              this.dlambdas = zeros(3,1);
-            this.collision = collision;
 		end
 
 		%%
-		function init(this, h, hs) 
-            % Contact normal always point form body2 to body1
-            if(this.body1.layer < this.body2.layer)
-                temp = this.body1;
-                this.body1 = this.body2;
-                this.body2 = temp;
-                temp = this.x1;
-                this.x1 = this.x2;
-                this.x2 = temp;
-                this.nw = - this.nw;
-            end
-            % Now we can assume body1 is always above body2
-
+		function init(this,h,hs) 
             this.d = this.body1.transformPoint(this.x1) - this.body2.transformPoint(this.x2);
             this.dt = this.d / h;
-
             this.biasCoefficient = -1 / hs;
+
             this.lambda = zeros(3,1);
             [tanx,tany] = apbd.ConColl.generateTangents(this.nw);
             this.contactFrame = [this.nw, tanx, tany];
-            this.mu = 0.5 * (this.body1.mu + this.body2.mu);
 
 			m1 = this.body1.Mp;
 			I1 = this.body1.Mr;
@@ -112,7 +96,7 @@ classdef ConCollRigidRigid < apbd.ConColl
 
         %%
         function Cs = evalCs(this)
-                Cs = this.contactFrame' * (this.body1.v - this.body2.v) + this.raXn1' * this.body1.w - this.raXn2' * this.body2.w + this.contactFrame'* this.dt;
+            Cs = this.contactFrame' * (this.body1.v - this.body2.v) + this.raXn1' * this.body1.w - this.raXn2' * this.body2.w + this.contactFrame'* this.dt;
         end
 
         %%
@@ -134,11 +118,6 @@ classdef ConCollRigidRigid < apbd.ConColl
                 normalVel = this.nw .* this.body1.v + this.body1.w .* this.raXn1(:,1);
                 normalVel = normalVel - (this.nw .* this.body2.v + this.body2.w .* this.raXn2(:,1));
                 this.dlambdas(1) =  bias / (this.w1(1) + this.w2(1)) - sum(normalVel) / (this.w1(1) + this.w2(1));
-                lambda = this.lambda(1) + this.dlambdas(1);
-                if(lambda < 0)
-                    this.dlambdas(1) = - this.lambda(1);
-                    this.collision.broken = true;
-                end
                 this.lambda(1) = this.lambda(1) + this.dlambdas(1);
                 this.body1.v = this.body1.v + this.dlambdas(1) * this.delLinVel1(:,1);
                 this.body1.w = this.body1.w + this.dlambdas(1) * this.angDelta1(:,1);
@@ -188,14 +167,6 @@ classdef ConCollRigidRigid < apbd.ConColl
                     dlambdaTan(i-1) =  (bias / (this.w1(i) + this.w2(i)) - sum(normalVel) / (this.w1(i) + this.w2(i)));
                 end
                 dlambdaTan = [0;dlambdaTan];
-                %dlambdas = this.wMat \ b;
-                lambdas = this.lambda + dlambdaTan;
-                frictionRadius = this.mu * lambdas(1);
-                if(norm(lambdas(2:3)) > frictionRadius)
-                    lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
-                    dlambdaTan = lambdas - this.lambda; 
-                    this.collision.broken = true;
-                end
                 this.lambda = this.lambda + dlambdaTan;
                 this.body1.v = this.body1.v +  this.delLinVel1 * dlambdaTan;
                 this.body1.w = this.body1.w +  this.angDelta1 * dlambdaTan;
@@ -240,54 +211,6 @@ classdef ConCollRigidRigid < apbd.ConColl
             end
         end
 
-		%%
-        function solveNorVel(this, substeps)
-            sep = this.nw' * this.body1.deltaLinDt + this.raXn1(:,1)' * this.body1.deltaAngDt;
-            sep = sep - (this.nw' * this.body2.deltaLinDt + this.raXn2(:,1)' * this.body2.deltaAngDt);
-            bias = -sep * substeps;
-            %normalVel = this.nw' * this.body.computePointVel(this.xl);
-            normalVel = this.nw .* this.body1.v + this.body1.w .* this.raXn1(:,1);
-            normalVel = normalVel - (this.nw .* this.body2.v + this.body2.w .* this.raXn2(:,1));
-            this.dlambdas(1) =  bias / (this.w1(1) + this.w2(1)) - sum(normalVel) / (this.w1(1) + this.w2(1));
-            lambda = this.lambda(1) + this.dlambdas(1);
-            if(lambda < 0)
-                this.dlambdas(1) = - this.lambda(1);
-                this.collision.broken = true;
-            end
-            this.lambda(1) = this.lambda(1) + this.dlambdas(1);
-            this.body1.v = this.body1.v + this.dlambdas(1) * this.delLinVel1(:,1);
-            this.body1.w = this.body1.w + this.dlambdas(1) * this.angDelta1(:,1);
-            this.body2.v = this.body2.v - this.dlambdas(1) * this.delLinVel2(:,1);
-            this.body2.w = this.body2.w - this.dlambdas(1) * this.angDelta2(:,1);
-        end
-
-		%%
-        function solveTanVel(this, substeps)
-            dlambdaTan = zeros(2,1);
-            for i = 2:3
-                sep = this.contactFrame(:,i)' * this.body1.deltaLinDt + this.raXn1(:,i)' * this.body1.deltaAngDt;
-                sep = sep - (this.contactFrame(:,i)' * this.body2.deltaLinDt + this.raXn2(:,i)' * this.body2.deltaAngDt);
-                bias = -sep * substeps;
-                normalVel = this.contactFrame(:,i) .* this.body1.v + this.body1.w .* this.raXn1(:,i);
-                normalVel = normalVel - (this.contactFrame(:,i) .* this.body2.v + this.body2.w .* this.raXn2(:,i));
-                dlambdaTan(i-1) =  (bias / (this.w1(i) + this.w2(i)) - sum(normalVel) / (this.w1(i) + this.w2(i)));
-            end
-            dlambdaTan = [0;dlambdaTan];
-            %dlambdas = this.wMat \ b;
-            lambdas = this.lambda + dlambdaTan;
-            frictionRadius = this.mu * lambdas(1);
-            if(norm(lambdas(2:3)) > frictionRadius)
-                lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
-                dlambdaTan = lambdas - this.lambda; 
-                this.collision.broken = true;
-            end
-            this.lambda = this.lambda + dlambdaTan;
-            this.body1.v = this.body1.v +  this.delLinVel1 * dlambdaTan;
-            this.body1.w = this.body1.w +  this.angDelta1 * dlambdaTan;
-            this.body2.v = this.body2.v - this.delLinVel2 * dlambdaTan;
-            this.body2.w = this.body2.w - this.angDelta2 * dlambdaTan;
-            this.dlambdas(2:3) = dlambdaTan(2:3);
-        end
         %%
         function applyLambdaSP(this)
             if(this.body1.layer ~= this.body2.layer)

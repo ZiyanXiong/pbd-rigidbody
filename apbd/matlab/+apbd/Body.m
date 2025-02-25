@@ -15,6 +15,8 @@ classdef (Abstract) Body < handle
 
         v        % Linear Velocity
         w        % Angular Velocity
+        v0
+        w0
         deltaLinDt % Change of linear motion
         deltaAngDt % Change of angular motion
         deltaBody2Worldp % Change of linear motion
@@ -60,6 +62,12 @@ classdef (Abstract) Body < handle
 		%%
 		function clearJacobi(this)
 			this.dxJacobi = zeros(this.n,1);
+        end
+
+		%%
+		function resetVelocity(this)
+			this.v = this.v0;
+            this.w = this.w0;
 		end
 
 		%%

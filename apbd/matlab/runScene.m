@@ -6,16 +6,14 @@ model.simulate();
 %}
 
 for i = 11
-    model = SIG25Model(i,1/60,150,2);
+    model = SIG25Model(i,1/100,150,2,false);
     model.init();
     model.drawHz = 0;
     model.simulate();
     if(model.solverType == 1)
-        fileName = "iterVec_rVec_TGS.mat";
+        fileName = sprintf("iterVec_rVec_TGS_%d.mat", model.substeps);
     elseif(model.solverType == 2)
         fileName = "iterVec_rVec_2PSP.mat";
-    else
-        fileName = sprintf("iterVec_rVec_TGS_%d.mat", model.substeps);
     end
     
     iterVec = model.iterVec;

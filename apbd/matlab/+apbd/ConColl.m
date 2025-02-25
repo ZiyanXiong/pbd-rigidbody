@@ -31,7 +31,7 @@ classdef ConColl < apbd.ConBase
 		solveNorPos(this)
 
 		%%
-		solveTanVel(this,k,ks,hs)
+		solveTanPos(this,k,ks,hs)
 	end
 
 	%%

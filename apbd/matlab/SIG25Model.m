@@ -1,7 +1,11 @@
-function model = SIG25Model(modelID, h, substeps, solverType)
+function model = SIG25Model(modelID, h, substeps, solverType, useGlobalMatrix)
 
 model = apbd.Model();
-
+if(nargin <5)
+    model.useGlobalMatrix = false;
+else
+    model.useGlobalMatrix = useGlobalMatrix;
+end
 switch(modelID)
     case 0
 		model.name = 'Scene:Test';
@@ -96,8 +100,9 @@ switch(modelID)
         E(1:3,1:3) = R;
 		E(1:3,4) = R * [x y z]';
 		model.bodies{end}.setInitTransform(E);
+        model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         angle = 0;
-		n = 3;
+		n = 1;
 		for i = 2 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -105,9 +110,9 @@ switch(modelID)
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 1 0], angle);
 			E = eye(4);
-			x =  0.2 ;
+			x =  0.0*w*i;
 			y = 0;
-			z = (i-1.5)*w+0.1;
+			z = (i-1.5)*w+0.0;
             %z = 0.5 * w;
             E(1:3,1:3) = R;
 			E(1:3,4) = R * [x y z]' + [-0.5*w*sin(angle) 0 w+0.5*w*sin(angle)]';
@@ -996,7 +1001,7 @@ switch(modelID)
 
 		model.view = [0 0];
 
-        layers = 10;
+        layers = 25;
         for l = 1:layers
 		    for i = 1 : 5                
 			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
@@ -1020,13 +1025,14 @@ switch(modelID)
 	    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
         R = se3.aaToMat([0 0 1], 0);
 	    E = eye(4);
-	    x = -0.0 *w;
+	    x = 1.0 *w;
 	    y = 14*w;
-	    z =-0.5*w + w*7;
+	    z =-0.5*w + w*22;
         E(1:3,1:3) = R;
 	    E(1:3,4) = R * [x y z]';
 	    model.bodies{end}.setInitTransform(E);
-        model.bodies{end}.setInitVelocity([0 0 0 0 -600 150]');
+        model.bodies{end}.setInitVelocity([0 0 0 0 -625 150]');
+        %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
         if ~exist(model.resultFolder, 'dir')
@@ -1047,46 +1053,77 @@ switch(modelID)
             fclose(fid);
         end
         case 14
-		model.name = 'Stacking: Jenga Test';
+		model.name = 'Joint:10 Hinge Joint';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 1;
+		model.tEnd = 5;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
         model.solverType = solverType;
 
         %model.itersSP = 30;
-		density = 0.6;
+		density = 1;
 		w = 4;
-		sides = [2*w 6*w w];
+		sides = [2*w 6*w 2*w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
 		mu = 0.2;
 
 		model.ground.size = 20;
-		model.axis = 40*[-1 1 -1 1 0 1];
+		model.axis = 2.5 * w *[-5 5 -5 5 10 15];
 		model.drawHz = 10;
 
-		model.view = [0 0];
+		model.view = [90 0];
 
-        layers = 3;
-        for l = 1:layers
-		    for i = 1 : 2
-			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-			    model.bodies{end}.collide = true;
-			    model.bodies{end}.mu = mu;
-    		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
-                R = se3.aaToMat([0 0 1], pi/2 * mod(l+1,2));
-			    E = eye(4);
-			    x = -4.03*w + 2.01*w*i;
-			    y = 0;
-			    z =-0.5*w + w*l;
+        n = 2;
+        for i = 1:n-1
+		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+		    model.bodies{end}.collide = false;
+		    model.bodies{end}.mu = mu;
+		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+            if(i<5)
+                R = se3.aaToMat([1 0 0], 0);
+	            E = eye(4);
+	            x = 0;
+	            y = -3*w + i*6*w;
+	            z = 0;
                 E(1:3,1:3) = R;
-			    E(1:3,4) = R * [x y z]';
-			    model.bodies{end}.setInitTransform(E);
+	            E(1:3,4) = R*[x y z]' + [0 0 5*6*w]';
+            else
+                R = se3.aaToMat([1 0 0], pi/2);
+	            E = eye(4);
+	            x = 0;
+	            y = 3*w;
+	            z = 0;
+                E(1:3,1:3) = R;
+	            E(1:3,4) = R * [x y z]' + [0 0 i*6*w]';
+            end
+		    model.bodies{end}.setInitTransform(E);
+            model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+        end
+
+	    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),Inf);
+	    model.bodies{end}.collide = false;
+	    model.bodies{end}.mu = mu;
+	    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+        R = se3.aaToMat([1 0 0], pi/2);
+	    E = eye(4);
+	    x = 0;
+	    y = 3*w;
+	    z = 0;
+        E(1:3,1:3) = R;
+	    E(1:3,4) = R * [x y z]' + [0 0 5*6*w]';
+	    model.bodies{end}.setInitTransform(E);
+
+        for i = 1:n-1
+            if(i<5)
+                model.joints{end+1} = JointHinge(model.bodies{i}, model.bodies{i+1}, false, [0 (i-1)*6*w 5*6*w]' ,[1 0 0]');
+            else
+                model.joints{end+1} = JointHinge(model.bodies{i}, model.bodies{i+1}, false, [0 0 (i+1)*6*w]' ,[1 0 0]');
             end
         end
+
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)

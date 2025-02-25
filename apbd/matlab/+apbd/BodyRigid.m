@@ -26,6 +26,8 @@ classdef BodyRigid < apbd.Body
 			this.Mp = 0;
             this.w = zeros(3,1);
             this.v = zeros(3,1);
+            this.w0 = zeros(3,1);
+            this.v0 = zeros(3,1);
             this.deltaBody2Worldp = zeros(3,1);
             this.deltaBody2Worldq = zeros(4,1);
             this.deltaBody2Worldq(4) = 1;
@@ -41,6 +43,7 @@ classdef BodyRigid < apbd.Body
 			this.xInit(1:4) = se3.matToQ(E(1:3,1:3));
 			if this.xInit(4) < 0, this.xInit = -this.xInit; end
 			this.xInit(5:7) = E(1:3,4);
+            this.x = this.xInit;
 		end
 
 		%%
@@ -96,6 +99,14 @@ classdef BodyRigid < apbd.Body
         end
 
         %%
+        function initVelocitySolve(this,h)
+            %this.w = this.deltaAngDt / h;
+            %this.v = this.deltaLinDt / h;
+            this.deltaLinDt = zeros(3,1);
+            this.deltaAngDt = zeros(3,1);
+        end
+
+        %%
         function updateStatesDirect(this, h)
 			%q = this.x0(1:4);
             %R = se3.qToMat(q);
@@ -119,6 +130,12 @@ classdef BodyRigid < apbd.Body
 
             this.x(1:4) = se3.qMul(this.deltaBody2Worldq, this.x0(1:4));
             this.x(5:7) = this.x0(5:7) + this.deltaBody2Worldp;
+        end
+
+        %%
+        function updateVelocities(this, hs)
+            this.deltaAngDt = this.deltaAngDt + this.w * hs;
+            this.deltaLinDt = this.deltaLinDt + this.v * hs;
         end
 
         %%
@@ -211,14 +228,20 @@ classdef BodyRigid < apbd.Body
             this.x0 = this.x;
 			v = this.v; % pdot
 			q = this.x(1:4);
+            R = se3.qToMat(q);
 
             %R = eye(3);
 			w = this.w; % angular velocity in body coords
 			%f = zeros(3,1); % translational force in world space
 			t = zeros(3,1); % angular torque in body space
 			m = this.Mp; % scalar mass
+            
+            if(isinf(this.Mr))
+                I = diag(this.Mr);
+            else
+                I = R * diag(1./this.Mr) * R';
+            end
 
-            I = diag(this.Mr);
 			Iw = I*w; % angular momentum in body space
 			f = f + m*grav; % Gravity
 			t = t + se3.cross(Iw,w); % Coriolis
@@ -238,6 +261,8 @@ classdef BodyRigid < apbd.Body
             %this.w = sqrtInertia * w;
             this.w = w;
             this.v = v;
+            this.v0 = v;
+            this.w0 = w;
 		end
 
 		%%
