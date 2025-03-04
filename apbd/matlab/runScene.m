@@ -5,8 +5,8 @@ model.init();
 model.simulate();
 %}
 
-for i = 11
-    model = SIG25Model(i,1/100,150,2,false);
+for i = 13
+    model = SIG25Model(i,1/100,150,2,true);
     model.init();
     model.drawHz = 0;
     model.simulate();

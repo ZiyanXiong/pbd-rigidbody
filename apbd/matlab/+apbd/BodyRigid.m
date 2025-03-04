@@ -154,7 +154,6 @@ classdef BodyRigid < apbd.Body
             this.deltaAngDt = zeros(3,1);
 
             %Clear contact information
-            this.layer = 99;
             this.neighbors = [];
             this.collisions = [];
         end

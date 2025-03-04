@@ -120,8 +120,8 @@ classdef Model < handle
 		function simulate(this)
 			while this.k < this.steps
 				this.ks = 0;
-                if this.k == 30
-                    %fprintf("Pause.");
+                if this.k == 9
+                    fprintf("Pause.");
                 end
                 if(~this.useGlobalMatrix)
                     this.solveConTGS();
@@ -454,7 +454,6 @@ classdef Model < handle
 		%%
         function solveConGlobal(this)
             this.collider.run();
-
             for i = 1 : length(this.collider.activeCollisions)
                 for j = this.collider.activeCollisions{i}
                     this.collider.collisions{j}.initConstraints(this.h, this.hs);

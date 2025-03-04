@@ -102,7 +102,7 @@ switch(modelID)
 		model.bodies{end}.setInitTransform(E);
         model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         angle = 0;
-		n = 1;
+		n = 10;
 		for i = 2 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -117,7 +117,9 @@ switch(modelID)
             E(1:3,1:3) = R;
 			E(1:3,4) = R * [x y z]' + [-0.5*w*sin(angle) 0 w+0.5*w*sin(angle)]';
 			model.bodies{end}.setInitTransform(E);
-            model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+            if(i==n)
+                model.bodies{end}.setInitVelocity([0 0 0 100 0 0]');
+            end
         end
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
         if ~exist(model.resultFolder, 'dir')
@@ -981,7 +983,7 @@ switch(modelID)
 		model.name = 'Stacking: Circular';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 1;
+		model.tEnd = 1.5;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
@@ -1003,14 +1005,14 @@ switch(modelID)
 
         layers = 25;
         for l = 1:layers
-		    for i = 1 : 5                
+		    for i = 1 : 5               
 			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			    model.bodies{end}.collide = true;
 			    model.bodies{end}.mu = mu;
     		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
-                R = se3.aaToMat([0 0 1], i*2*pi/5 + pi/6 * l);
+                R = se3.aaToMat([0 0 1], i*2*pi/5 + pi/5 * l);
 			    E = eye(4);
-			    x = -4*w;
+			    x = -4.5*w;
 			    y = 0;
 			    z =-0.5*w + w*l;
                 E(1:3,1:3) = R;
@@ -1023,15 +1025,16 @@ switch(modelID)
 	    model.bodies{end}.collide = true;
 	    model.bodies{end}.mu = mu;
 	    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
-        R = se3.aaToMat([0 0 1], 0);
+        R = se3.aaToMat([0 0 1], 1*2*pi/5 + pi/5 * 24 + pi/2);
 	    E = eye(4);
-	    x = 1.0 *w;
-	    y = 14*w;
-	    z =-0.5*w + w*22;
+	    x = 0;
+	    y = 13.25*w;
+	    z =-0.5*w + w*24;
         E(1:3,1:3) = R;
 	    E(1:3,4) = R * [x y z]';
 	    model.bodies{end}.setInitTransform(E);
-        model.bodies{end}.setInitVelocity([0 0 0 0 -625 150]');
+        vw = R * [0 -600 20]';
+        model.bodies{end}.setInitVelocity([0 0 0 vw']');
         %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);

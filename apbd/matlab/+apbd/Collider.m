@@ -40,6 +40,9 @@ classdef Collider < handle
 
 		%%
 		function run(this)
+            if(nargin<2)
+                computeBodyOrder = true;
+            end
 			this.bpList1 = {};
 			this.bpList2 = {};
             this.activeCollisions = [];
@@ -53,11 +56,19 @@ classdef Collider < handle
 
 			this.broadphase();
 			this.narrowphase();
+            this.constructBodyOrder();
             this.constructCollisionOrder();
-		end
+        end
 
         %%
-        function constructCollisionOrder(this)
+        function constructBodyOrder(this)
+			% Initialize body layer number
+		    for i = 1 : length(this.model.bodies)
+                if(this.model.bodies{i}.layer ~= 1)
+                    this.model.bodies{i}.layer = 101;
+                end
+            end
+
             for i = 1 : length(this.groundBodyIndex)
                 groundIndex = this.groundBodyIndex(i);
                 nextBodyQueue = groundIndex;
@@ -73,8 +84,10 @@ classdef Collider < handle
                     end
                 end
             end
+        end
 
-            %conLayers = arrayfun(@(conIndex) this.collisions{conIndex}.body1.layer + this.collisions{conIndex}.body2.layer, this.activeCollisions);
+        %%
+        function constructCollisionOrder(this)
             conLayers = zeros(length(this.activeCollisions),1);
             for i = 1:length(this.activeCollisions)
                 conIndex = this.activeCollisions(i);
@@ -91,9 +104,22 @@ classdef Collider < handle
             %[~, idx] = sort(conLayers);
             layers = unique(conLayers);
             sortedCollisions = {};
-            for i = 1:length(layers)
-                if(mod(layers(i),2)==1)
-                    sortedCollisions{end+1} = [this.activeCollisions(conLayers==layers(i)), this.activeCollisions(conLayers==layers(i)+1)];
+            if(length(layers(mod(layers,2)==1)) > 9)
+                sortedCollisions{end+1} = [];
+                for i = 1:8
+                    sortedCollisions{end} = [sortedCollisions{end}, this.activeCollisions(conLayers==i)];
+                end
+                startind = find(layers == 9);
+                for i = startind:length(layers)
+                    if(mod(layers(i),2)==1)
+                        sortedCollisions{end+1} = [this.activeCollisions(conLayers==layers(i)), this.activeCollisions(conLayers==layers(i)+1)];
+                    end
+                end
+            else
+                for i = 1:length(layers)
+                    if(mod(layers(i),2)==1)
+                        sortedCollisions{end+1} = [this.activeCollisions(conLayers==layers(i)), this.activeCollisions(conLayers==layers(i)+1)];
+                    end
                 end
             end
             this.activeCollisions = sortedCollisions;
@@ -138,8 +164,16 @@ classdef Collider < handle
                 end
                 this.collisions{body.index}.getConstraints();
                 if(this.collisions{body.index}.contactNum ~= 0)
+                    %{
+                    if(body.layer == 1 || body.layer == 99)
+                        this.groundBodyIndex(end+1) = body.index;
+                    end
+                    %}
+                    
                     this.groundBodyIndex(end+1) = body.index;
                     body.layer = 1;
+                    
+                    this.groundBodyIndex(end+1) = body.index;
                     this.activeCollisions(end+1) = body.index;
                     if(this.model.useContactCaching)
                         this.collisions{body.index}.broken = false;

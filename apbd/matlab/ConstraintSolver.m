@@ -201,7 +201,7 @@ classdef ConstraintSolver < handle
                 end
                 rsln = rsl(1:3:end);
                 deltax = -Asp(blocks{l},:)*dx;
-                if(~all(rsln(deltax(1:3:end)<-1e-1) > -1e-1))
+                if(~all(rsln(deltax(1:3:end)<-1e-1) > -1))
                     upwardSuccess = false;
                     break;
                 end
@@ -259,7 +259,7 @@ classdef ConstraintSolver < handle
                     end
                     rsln = rsl(1:3:end);
                     deltax = -AspT(blocks{l},:)*dx;
-                    if(~all(rsln(deltax(1:3:end)<-1e-1) > -1e-1))
+                    if(~all(rsln(deltax(1:3:end)<-1e-1) > -1))
                         downwardSuccess = false;
                         break;
                     end
