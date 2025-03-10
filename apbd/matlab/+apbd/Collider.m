@@ -10,6 +10,7 @@ classdef Collider < handle
         activeCollisions
         groundBodyIndex
         bodyNum
+        gravityDirection
 	end
 
 	methods
@@ -21,6 +22,7 @@ classdef Collider < handle
             this.bodyNum = length(model.bodies);
             this.activeCollisions = [];
             this.groundBodyIndex = [];
+            this.gravityDirection = [0 0 -1]';
 			this.collisions = cell(1,(this.bodyNum+1)*this.bodyNum/2);
             groundBody = apbd.BodyRigid(apbd.ShapeCuboid([1 1 0.1]),Inf);
             groundBody.layer = 0;
@@ -40,13 +42,10 @@ classdef Collider < handle
 
 		%%
 		function run(this)
-            if(nargin<2)
-                computeBodyOrder = true;
-            end
 			this.bpList1 = {};
 			this.bpList2 = {};
             this.activeCollisions = [];
-            this.groundBodyIndex = [];
+            %this.groundBodyIndex = [];
             for i = 1:this.bodyNum
                 if(isinf(this.model.bodies{i}.Mp))
                     this.groundBodyIndex(end+1) = i;
@@ -64,30 +63,41 @@ classdef Collider < handle
         function constructBodyOrder(this)
 			% Initialize body layer number
 		    for i = 1 : length(this.model.bodies)
-                if(this.model.bodies{i}.layer ~= 1)
                     this.model.bodies{i}.layer = 101;
-                end
             end
 
             for i = 1 : length(this.groundBodyIndex)
                 groundIndex = this.groundBodyIndex(i);
                 nextBodyQueue = groundIndex;
+                this.model.bodies{groundIndex}.layer = 1;
                 while ~isempty(nextBodyQueue)
                     currentIndex = nextBodyQueue(1);
                     nextBodyQueue(1) = [];
                     for j = 1 : length(this.model.bodies{currentIndex}.neighbors)
                         neighborIndex = this.model.bodies{currentIndex}.neighbors(j);
-                        if(this.model.bodies{neighborIndex}.layer > this.model.bodies{currentIndex}.layer + 1)
+                        if(this.model.bodies{neighborIndex}.layer == 101 || this.model.bodies{neighborIndex}.layer < this.model.bodies{currentIndex}.layer + 1)
                             this.model.bodies{neighborIndex}.layer = this.model.bodies{currentIndex}.layer + 1;
                             nextBodyQueue(end + 1) = neighborIndex;
                         end
                     end
                 end
             end
+            highestLayer = 0;
+		    for i = 1 : length(this.model.bodies)
+                if(this.model.bodies{i}.layer ~= 101 && this.model.bodies{i}.layer > highestLayer)
+                    highestLayer = this.model.bodies{i}.layer;
+                end
+            end
+		    for i = 1 : length(this.model.bodies)
+                if(this.model.bodies{i}.layer == 101)
+                    this.model.bodies{i}.layer = highestLayer + 1;
+                end
+            end
         end
 
         %%
         function constructCollisionOrder(this)
+            %{
             conLayers = zeros(length(this.activeCollisions),1);
             for i = 1:length(this.activeCollisions)
                 conIndex = this.activeCollisions(i);
@@ -123,6 +133,24 @@ classdef Collider < handle
                 end
             end
             this.activeCollisions = sortedCollisions;
+            %}
+
+            bodyLayers = zeros(this.bodyNum, 1);
+            for i = 1: this.bodyNum
+                bodyLayers(i) = this.model.bodies{i}.layer;
+            end
+            [~, idx] = sort(bodyLayers);
+            sortedCollisions = cell(max(bodyLayers),1);
+            for i = 1:this.bodyNum
+                l = this.model.bodies{idx(i)}.layer;
+                for j = 1: length(this.model.bodies{idx(i)}.collisions)
+                    collind = this.model.bodies{idx(i)}.collisions(j);
+                    if(this.collisions{collind}.body1.layer == l)
+                        sortedCollisions{l} = [sortedCollisions{l}, this.model.bodies{idx(i)}.collisions(j)];
+                    end
+                end
+            end
+            this.activeCollisions = sortedCollisions;
         end
 		%%
 		function broadphase(this)
@@ -154,6 +182,11 @@ classdef Collider < handle
 
 		%%
 		function narrowphase(this)
+            if(isempty(this.groundBodyIndex))
+                saveGroundBodyIndex = true;
+            else
+                saveGroundBodyIndex = false;
+            end
 			% Body-ground collisions
 			Eg = this.model.ground.E;
 			for i = 1 : length(this.bpList1)
@@ -169,11 +202,9 @@ classdef Collider < handle
                         this.groundBodyIndex(end+1) = body.index;
                     end
                     %}
-                    
-                    this.groundBodyIndex(end+1) = body.index;
-                    body.layer = 1;
-                    
-                    this.groundBodyIndex(end+1) = body.index;
+                    if(saveGroundBodyIndex)
+                        this.groundBodyIndex(end+1) = body.index;
+                    end
                     this.activeCollisions(end+1) = body.index;
                     if(this.model.useContactCaching)
                         this.collisions{body.index}.broken = false;
@@ -193,14 +224,34 @@ classdef Collider < handle
                 index = (2*this.bodyNum+2-l)*(l-1)/2 + h - l + 1;
                 if(this.collisions{index}.broken)
 				    cdata = body1.narrowphaseRigid(body2);
-                    this.collisions{index}.setContacts(cdata);
                 end
-                this.collisions{index}.body1 = body1;
-                this.collisions{index}.body2 = body2;
-                this.collisions{index}.getConstraints();
-                if(this.collisions{index}.contactNum ~= 0)
-                    body1.neighbors(end+1) = body2.index;
-                    body2.neighbors(end+1) = body1.index;
+                if(~isempty(cdata))
+                    nw = cdata(1).nw;
+                    xd = body1.x(5:7) - body2.x(5:7);
+                    xd = xd ./ norm(xd);
+                    if(abs(nw'*this.gravityDirection) > 0.25)
+                        if (xd'*this.gravityDirection > 0)
+                            for j =1:length(cdata)
+            					cdata(j).nw = -cdata(j).nw;
+                                temp = cdata(j).x1;
+					            cdata(j).x1 = cdata(j).x2;
+					            cdata(j).x2 = temp;
+                            end
+                            this.collisions{index}.body1 = body2;
+                            this.collisions{index}.body2 = body1;
+                            body1.neighbors(end+1) = body2.index;
+                        else
+                            this.collisions{index}.body1 = body1;
+                            this.collisions{index}.body2 = body2;
+                            body2.neighbors(end+1) = body1.index;
+                        end
+                    else
+                        this.collisions{index}.body1 = body1;
+                        this.collisions{index}.body2 = body2;
+                    end
+                    this.collisions{index}.setContacts(cdata);
+                    this.collisions{index}.getConstraints();
+
                     this.activeCollisions(end+1) = index;
                     if(this.model.useContactCaching)
                         this.collisions{index}.broken = false;

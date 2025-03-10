@@ -121,7 +121,22 @@ switch(modelID)
                 model.bodies{end}.setInitVelocity([0 0 0 100 0 0]');
             end
         end
+
+		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([3*w w w]),density*0.5);
+		model.bodies{end}.collide = true;
+		model.bodies{end}.mu = mu;
+		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+        R = se3.aaToMat([0 1 0], pi/3);
+		E = eye(4);
+		x =  -1.5 * w;
+		y = 0;
+		z = 0.5*w;
+        E(1:3,1:3) = R;
+		E(1:3,4) = R * [x y z]' + [2*w 0 0.2*w]';
+		model.bodies{end}.setInitTransform(E);
+        model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
@@ -983,7 +998,7 @@ switch(modelID)
 		model.name = 'Stacking: Circular';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 1.5;
+		model.tEnd = 0.1;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
@@ -1028,12 +1043,12 @@ switch(modelID)
         R = se3.aaToMat([0 0 1], 1*2*pi/5 + pi/5 * 24 + pi/2);
 	    E = eye(4);
 	    x = 0;
-	    y = 13.25*w;
+	    y = 11.25*w;
 	    z =-0.5*w + w*24;
         E(1:3,1:3) = R;
 	    E(1:3,4) = R * [x y z]';
 	    model.bodies{end}.setInitTransform(E);
-        vw = R * [0 -600 20]';
+        vw = R * [0 -400 20]';
         model.bodies{end}.setInitVelocity([0 0 0 vw']');
         %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         
@@ -1056,75 +1071,87 @@ switch(modelID)
             fclose(fid);
         end
         case 14
-		model.name = 'Joint:10 Hinge Joint';
+		model.name = 'Different height bridge';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 5;
+		model.tEnd = 1;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
-        model.solverType = solverType;
-
         %model.itersSP = 30;
-		density = 1;
+		density = 1.0;
 		w = 4;
-		sides = [2*w 6*w 2*w];
+		sides = [w w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.2;
+		mu = 0.5;
 
 		model.ground.size = 20;
-		model.axis = 2.5 * w *[-5 5 -5 5 10 15];
-		model.drawHz = 10;
+		model.axis = 40*[-1 1 -1 1 0 2.5];
+		model.drawHz = 120;
 
-		model.view = [90 0];
+		model.view = [0 0];
+        model.solverType = solverType;
 
-        n = 2;
-        for i = 1:n-1
-		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
-		    model.bodies{end}.collide = false;
+        for l = 1:2
+		    n = 10;
+		    for i = 1 : n
+			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w w w]),density);
+			    model.bodies{end}.collide = true;
+			    model.bodies{end}.mu = mu;
+    		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+                R = se3.aaToMat([0 0 1], 0.0);
+			    E = eye(4);
+                if(l == 1)
+			        x =  -3*w;
+                    z = (i-0.5)*w;
+                else
+                    x = 3 *w;
+                    z = (i-0.5 + 11)*w;
+                end
+			    y = 0;
+                %z = 0.5 * w;
+                E(1:3,1:3) = R;
+			    E(1:3,4) = R * [x y z]';
+			    model.bodies{end}.setInitTransform(E);
+            end
+    
+		    for i = 1 : n/2
+			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w w 2*w]),density);
+			    model.bodies{end}.collide = true;
+			    model.bodies{end}.mu = mu;
+    		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
+                R = se3.aaToMat([0 0 1], 0.0);
+			    E = eye(4);
+                if(l == 1)
+			        x =  3*w;
+                    z = (i-0.5)*2*w;
+                else
+                    x = -3*w;
+                    z = (i-0.5 + 5.5)*2*w;
+                end
+			    y = 0;
+                E(1:3,1:3) = R;
+			    E(1:3,4) = R * [x y z]';
+			    model.bodies{end}.setInitTransform(E);
+            end
+		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([8*w w w]),density);
+		    model.bodies{end}.collide = true;
 		    model.bodies{end}.mu = mu;
 		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
-            if(i<5)
-                R = se3.aaToMat([1 0 0], 0);
-	            E = eye(4);
-	            x = 0;
-	            y = -3*w + i*6*w;
-	            z = 0;
-                E(1:3,1:3) = R;
-	            E(1:3,4) = R*[x y z]' + [0 0 5*6*w]';
+            R = se3.aaToMat([0 0 1], 0.0);
+		    E = eye(4);
+		    x =  0;
+		    y = 0;
+            if(l == 1)
+		        z = (10+0.5)*w;
             else
-                R = se3.aaToMat([1 0 0], pi/2);
-	            E = eye(4);
-	            x = 0;
-	            y = 3*w;
-	            z = 0;
-                E(1:3,1:3) = R;
-	            E(1:3,4) = R * [x y z]' + [0 0 i*6*w]';
+                z = (21+0.5)*w;
             end
+            %z = 0.5 * w;
+            E(1:3,1:3) = R;
+		    E(1:3,4) = R * [x y z]';
 		    model.bodies{end}.setInitTransform(E);
-            model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
-        end
-
-	    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),Inf);
-	    model.bodies{end}.collide = false;
-	    model.bodies{end}.mu = mu;
-	    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
-        R = se3.aaToMat([1 0 0], pi/2);
-	    E = eye(4);
-	    x = 0;
-	    y = 3*w;
-	    z = 0;
-        E(1:3,1:3) = R;
-	    E(1:3,4) = R * [x y z]' + [0 0 5*6*w]';
-	    model.bodies{end}.setInitTransform(E);
-
-        for i = 1:n-1
-            if(i<5)
-                model.joints{end+1} = JointHinge(model.bodies{i}, model.bodies{i+1}, false, [0 (i-1)*6*w 5*6*w]' ,[1 0 0]');
-            else
-                model.joints{end+1} = JointHinge(model.bodies{i}, model.bodies{i+1}, false, [0 0 (i+1)*6*w]' ,[1 0 0]');
-            end
         end
 
         model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
@@ -1135,13 +1162,14 @@ switch(modelID)
            mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
         end
         if(model.solverType == 1)
+            %model.useContactCaching = true;
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
             fclose(fid);
         elseif(model.solverType == 2)
             fid = fopen(fullfile(model.resultFolder, 'Body_States_2PSP.txt'), 'w');
             fclose(fid);
         else
-            %model.useContactCaching = false;
+            %model.useContactCaching = true;
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
             fclose(fid);
         end

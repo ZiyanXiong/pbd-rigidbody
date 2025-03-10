@@ -121,7 +121,7 @@ classdef Model < handle
 			while this.k < this.steps
 				this.ks = 0;
                 if this.k == 9
-                    fprintf("Pause.");
+                    %fprintf("Pause.");
                 end
                 if(~this.useGlobalMatrix)
                     this.solveConTGS();
