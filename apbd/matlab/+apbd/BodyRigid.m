@@ -223,7 +223,7 @@ classdef BodyRigid < apbd.Body
 		end
 		
         %%
-		function stepBDF1(this,h,grav,f)
+		function stepBDF1(this,h,grav,f,t)
             this.x0 = this.x;
 			v = this.v; % pdot
 			q = this.x(1:4);
@@ -232,13 +232,13 @@ classdef BodyRigid < apbd.Body
             %R = eye(3);
 			w = this.w; % angular velocity in body coords
 			%f = zeros(3,1); % translational force in world space
-			t = zeros(3,1); % angular torque in body space
+			%t = zeros(3,1); % angular torque in world space
 			m = this.Mp; % scalar mass
             
             if(isinf(this.Mr))
                 I = diag(this.Mr);
             else
-                I = R * diag(1./this.Mr) * R';
+                I = R * diag(this.Mr) * R';
             end
 
 			Iw = I*w; % angular momentum in body space
@@ -246,8 +246,8 @@ classdef BodyRigid < apbd.Body
 			t = t + se3.cross(Iw,w); % Coriolis
 			% Integrate velocities
             if(~isinf(m))
-			    w = w + h*(I\t);
-			    v = v + h*(m \f);
+			    w = w + h*(I \ t);
+			    v = v + h*(m \ f);
             end
 			%qdot = se3.wToQdot(q,w);
 			% Integrate positions

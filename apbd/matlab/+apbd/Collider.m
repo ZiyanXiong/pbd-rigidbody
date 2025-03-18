@@ -4,211 +4,92 @@ classdef Collider < handle
 
 	properties
 		model
-		bpList1
-		bpList2
+        bpList1
+        bpList2
+        groundCollNum
+        bodyCollNum
 		collisions
         activeCollisions
-        groundBodyIndex
         bodyNum
 	end
 
 	methods
 		%%
-		function this = Collider(model)
+        function this = Collider(model, groundCollisionList, bodyCollisionList)
 			this.model = model;
-			this.bpList1 = {};
-			this.bpList2 = {};
+            this.groundCollNum = length(groundCollisionList);
+            this.bodyCollNum = size(bodyCollisionList,1);
             this.bodyNum = length(model.bodies);
             this.activeCollisions = [];
-            this.groundBodyIndex = [];
-			this.collisions = cell(1,(this.bodyNum+1)*this.bodyNum/2);
+			this.collisions = cell(1,this.groundCollNum + this.bodyCollNum);
             groundBody = apbd.BodyRigid(apbd.ShapeCuboid([1 1 0.1]),Inf);
             groundBody.layer = 0;
             groundBody.index = 0;
-            for i = 1 : this.bodyNum
-                for j = i : this.bodyNum
-                    index = (2*this.bodyNum+2-i)*(i-1)/2 + j - i + 1;
-                    %disp(index);
-                    if i == 1
-                        this.collisions{index} = Collision(model.bodies{j}, groundBody, true);
-                    else
-                        this.collisions{index} = Collision(model.bodies{i-1}, model.bodies{j}, false);
-                    end
-                end
+            for i = 1 : this.groundCollNum
+                this.collisions{i} = Collision(model.bodies{groundCollisionList(i)}, groundBody, true);
+            end
+            for i = 1 : this.bodyCollNum
+                this.collisions{i+this.groundCollNum} = Collision(model.bodies{bodyCollisionList(i,1)}, model.bodies{bodyCollisionList(i,2)}, false);
             end
 		end
 
 		%%
 		function run(this)
-            if(nargin<2)
-                computeBodyOrder = true;
-            end
-			this.bpList1 = {};
-			this.bpList2 = {};
             this.activeCollisions = [];
-            this.groundBodyIndex = [];
-            for i = 1:this.bodyNum
-                if(isinf(this.model.bodies{i}.Mp))
-                    this.groundBodyIndex(end+1) = i;
-                    this.model.bodies{i}.layer = 1;
-                end
-            end
-
+            this.bpList1 = [];
+            this.bpList2 = [];
 			this.broadphase();
 			this.narrowphase();
-            this.constructBodyOrder();
-            this.constructCollisionOrder();
         end
 
-        %%
-        function constructBodyOrder(this)
-			% Initialize body layer number
-		    for i = 1 : length(this.model.bodies)
-                if(this.model.bodies{i}.layer ~= 1)
-                    this.model.bodies{i}.layer = 101;
-                end
-            end
-
-            for i = 1 : length(this.groundBodyIndex)
-                groundIndex = this.groundBodyIndex(i);
-                nextBodyQueue = groundIndex;
-                while ~isempty(nextBodyQueue)
-                    currentIndex = nextBodyQueue(1);
-                    nextBodyQueue(1) = [];
-                    for j = 1 : length(this.model.bodies{currentIndex}.neighbors)
-                        neighborIndex = this.model.bodies{currentIndex}.neighbors(j);
-                        if(this.model.bodies{neighborIndex}.layer > this.model.bodies{currentIndex}.layer + 1)
-                            this.model.bodies{neighborIndex}.layer = this.model.bodies{currentIndex}.layer + 1;
-                            nextBodyQueue(end + 1) = neighborIndex;
-                        end
-                    end
-                end
-            end
-        end
-
-        %%
-        function constructCollisionOrder(this)
-            conLayers = zeros(length(this.activeCollisions),1);
-            for i = 1:length(this.activeCollisions)
-                conIndex = this.activeCollisions(i);
-                this.collisions{conIndex}.layer = this.collisions{conIndex}.body1.layer + this.collisions{conIndex}.body2.layer;
-                conLayers(i) = this.collisions{conIndex}.layer;
-            end
-
-            for i = 1 : length(this.model.bodies)
-                indices = find(ismember(this.activeCollisions, this.model.bodies{i}.collisions));
-                [~, order] = sort(conLayers(indices));
-                this.model.bodies{i}.collisions = this.model.bodies{i}.collisions(order);
-            end
-
-            %[~, idx] = sort(conLayers);
-            layers = unique(conLayers);
-            sortedCollisions = {};
-            if(length(layers(mod(layers,2)==1)) > 9)
-                sortedCollisions{end+1} = [];
-                for i = 1:8
-                    sortedCollisions{end} = [sortedCollisions{end}, this.activeCollisions(conLayers==i)];
-                end
-                startind = find(layers == 9);
-                for i = startind:length(layers)
-                    if(mod(layers(i),2)==1)
-                        sortedCollisions{end+1} = [this.activeCollisions(conLayers==layers(i)), this.activeCollisions(conLayers==layers(i)+1)];
-                    end
-                end
-            else
-                for i = 1:length(layers)
-                    if(mod(layers(i),2)==1)
-                        sortedCollisions{end+1} = [this.activeCollisions(conLayers==layers(i)), this.activeCollisions(conLayers==layers(i)+1)];
-                    end
-                end
-            end
-            this.activeCollisions = sortedCollisions;
-        end
 		%%
 		function broadphase(this)
-			bodies = this.model.bodies;
-
 			% Body-ground collisions
-			for i = 1 : length(bodies)
-				body = bodies{i};
+			for i = 1 : this.groundCollNum
+				body = this.collisions{i}.body1;
 				if body.collide
 					if body.broadphaseGround(this.model.ground.E)
-						this.bpList1{end+1} = body;
+						this.bpList1(end+1) = i;
 					end
 				end
 			end
 
 			% Body-body collisions
-			for i = 1 : length(bodies)
-				if bodies{i}.collide
-					for j = i+1 : length(bodies)
-						if bodies{j}.collide
-							if bodies{i}.broadphaseRigid(bodies{j})
-								this.bpList2{end+1} = {bodies{i},bodies{j}};
-							end
-						end
-					end
+			for i = this.groundCollNum +1 : this.groundCollNum + this.bodyCollNum
+                body1 = this.collisions{i}.body1;
+                body2 = this.collisions{i}.body2;
+				if body1.collide && body2.collide
+                    if body1.broadphaseRigid(body2)
+	                    this.bpList2(end+1) = i;
+                    end
 				end
 			end
 		end
 
 		%%
 		function narrowphase(this)
+
 			% Body-ground collisions
 			Eg = this.model.ground.E;
-			for i = 1 : length(this.bpList1)
-				body = this.bpList1{i};
-                if(this.collisions{body.index}.broken)
-				    cdata = body.narrowphaseGround(Eg);
-                    this.collisions{body.index}.setContacts(cdata);
-                end
-                this.collisions{body.index}.getConstraints();
-                if(this.collisions{body.index}.contactNum ~= 0)
-                    %{
-                    if(body.layer == 1 || body.layer == 99)
-                        this.groundBodyIndex(end+1) = body.index;
-                    end
-                    %}
-                    
-                    this.groundBodyIndex(end+1) = body.index;
-                    body.layer = 1;
-                    
-                    this.groundBodyIndex(end+1) = body.index;
-                    this.activeCollisions(end+1) = body.index;
-                    if(this.model.useContactCaching)
-                        this.collisions{body.index}.broken = false;
-                    else
-                        this.collisions{body.index}.broken = true;
-                    end
-                    body.collisions(end+1) = body.index;
+            for i = this.bpList1
+				body = this.collisions{i}.body1;
+			    cdata = body.narrowphaseGround(Eg);
+                if(~isempty(cdata))
+                    this.collisions{i}.setContacts(cdata);
+                    this.collisions{i}.getConstraints();
+                    this.activeCollisions(end+1) = i;
                 end
             end
 
 			% Body-body collisions
-			for i = 1 : length(this.bpList2)
-				body1 = this.bpList2{i}{1};
-				body2 = this.bpList2{i}{2};
-                l = min([body1.index body2.index]) + 1;
-                h = max([body1.index body2.index]);
-                index = (2*this.bodyNum+2-l)*(l-1)/2 + h - l + 1;
-                if(this.collisions{index}.broken)
-				    cdata = body1.narrowphaseRigid(body2);
-                    this.collisions{index}.setContacts(cdata);
-                end
-                this.collisions{index}.body1 = body1;
-                this.collisions{index}.body2 = body2;
-                this.collisions{index}.getConstraints();
-                if(this.collisions{index}.contactNum ~= 0)
-                    body1.neighbors(end+1) = body2.index;
-                    body2.neighbors(end+1) = body1.index;
-                    this.activeCollisions(end+1) = index;
-                    if(this.model.useContactCaching)
-                        this.collisions{index}.broken = false;
-                    else
-                        this.collisions{index}.broken = true;
-                    end
-                    body1.collisions(end+1) = index;
-                    body2.collisions(end+1) = index;
+            for i = this.bpList2
+                body1 = this.collisions{i}.body1;
+                body2 = this.collisions{i}.body2;
+			    cdata = body1.narrowphaseRigid(body2);
+                if(~isempty(cdata))
+                    this.collisions{i}.setContacts(cdata);
+                    this.collisions{i}.getConstraints();
+                    this.activeCollisions(end+1) = i;
                 end
             end
         end

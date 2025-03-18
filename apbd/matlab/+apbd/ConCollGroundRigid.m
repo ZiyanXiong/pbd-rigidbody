@@ -97,7 +97,7 @@ classdef ConCollGroundRigid < apbd.ConColl
                 lambda = this.lambda(1) + this.dlambdas(1);
                 if(lambda < 0)
                     this.dlambdas(1) = - this.lambda(1);
-                    this.collision.broken = true;
+                    %this.collision.broken = true;
                 end
                 this.lambda(1) = this.lambda(1) + this.dlambdas(1);
                 this.body.v = this.body.v + this.dlambdas(1) * this.delLinVel1(:,1);
@@ -136,7 +136,7 @@ classdef ConCollGroundRigid < apbd.ConColl
                 if(norm(lambdas(2:3)) > frictionRadius)
                     lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
                     dlambdaTan = lambdas - this.lambda; 
-                    this.collision.broken = true;
+                    %this.collision.broken = true;
                 end
                 this.lambda = this.lambda + dlambdaTan;
                 this.body.v = this.body.v + this.delLinVel1 * dlambdaTan;
@@ -175,7 +175,7 @@ classdef ConCollGroundRigid < apbd.ConColl
             lambda = this.lambda(1) + this.dlambdas(1);
             if(lambda < 0)
                 this.dlambdas(1) = - this.lambda(1);
-                this.collision.broken = true;
+                %this.collision.broken = true;
             end
             this.lambda(1) = this.lambda(1) + this.dlambdas(1);
             this.body.v = this.body.v + this.dlambdas(1) * this.delLinVel1(:,1);
@@ -198,7 +198,7 @@ classdef ConCollGroundRigid < apbd.ConColl
             if(norm(lambdas(2:3)) > frictionRadius)
                 lambdas(2:3) = frictionRadius * lambdas(2:3) / norm(lambdas(2:3));
                 dlambdaTan = lambdas - this.lambda; 
-                this.collision.broken = true;
+                %this.collision.broken = true;
             end
             this.lambda = this.lambda + dlambdaTan;
             this.body.v = this.body.v + this.delLinVel1 * dlambdaTan;

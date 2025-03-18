@@ -2,18 +2,25 @@ classdef JointHinge < Joint
     properties
         axis
         xw
+        torques
     end
 
     methods
-        function this = JointHinge(body1, body2, ground,xw,axis)
+        function this = JointHinge(body1, body2, ground, xw, axis, ts)
             this = this@Joint(body1,body2, ground);
             this.xw = xw;
             this.axis = axis;
-            this.constraintNum = 1;
-            xw1 = this.xw + this.axis*0;
-            %xw2 = this.xw - this.axis*4;
+            this.constraintNum = 2;
+            xw1 = this.xw + this.axis*2;
+            xw2 = this.xw - this.axis*2;
             this.constraints{end+1} = apbd.ConFix(this.body1,this.body2, xw1, [0 0 1]');
-            %this.constraints{end+1} = apbd.ConFix(this.body1,this.body2, xw2, this.axis);
+            this.constraints{end+1} = apbd.ConFix(this.body1,this.body2, xw2, [0 0 1]');
+
+             if(nargin < 6)
+                 this.torques = [];
+             else
+                 this.torques = axis' .* ts;
+             end
         end
 
         function init(this,h,hs)
@@ -24,6 +31,14 @@ classdef JointHinge < Joint
             for i = 1:this.constraintNum
                 this.constraints{i}.init(h,hs);
             end
+        end
+
+        %%
+        function [f,t]= applyForceTorque(this,f,t,timestep)
+            f(this.body1.index,:) = f(this.body1.index,:) + zeros(1,3);
+            f(this.body2.index,:) = f(this.body2.index,:) + zeros(1,3);
+            t(this.body1.index,:) = t(this.body1.index,:) + this.torques(timestep,:);
+            t(this.body2.index,:) = t(this.body2.index,:) - this.torques(timestep,:);
         end
 
         %%

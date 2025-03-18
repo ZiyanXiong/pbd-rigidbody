@@ -61,9 +61,8 @@ classdef ConstraintSolver < handle
             %save('GS_lambda.mat',"lambda");
         end
 
-        function [lambdax, x] = Temporal_Gauss_Sidiel(this, A, b, d, blocks, mu, substeps, x0)
+        function [lambdax, x] = Temporal_Gauss_Sidiel(this, A, b, d, contactConstraintEndInd, mu, substeps, x0)
             n = size(b,1);
-            layers = length(blocks);
             lambdax = zeros(n,1);
             if(nargin <8)
                 x = zeros(n,1);
@@ -74,53 +73,29 @@ classdef ConstraintSolver < handle
             d = d * substeps;
             bsub = - (cpv0 + d);
             for iter = 1:substeps
-                for l = 1:layers
-                    nind = blocks{l};
-                    nind = nind(1:3:end);
-                    tind = blocks{l};
-                    tind = tind(2:3:end);
-                    for i = nind
-                        ri = bsub(i) - A(i,:)*x;
-                        x(i) = x(i) + ri / A(i,i);
-                        if(x(i) < 0)
-                            x(i) = 0;
-                        end
-                    end
-
-                    for i = tind
-                        ri = bsub(i:i+1) - A(i:i+1,:) * x;
-                        x(i) = x(i) + ri(1) ./ A(i,i); 
-                        x(i+1) = x(i+1) + ri(2) ./ A(i+1,i+1);
-
-                        if (norm([x(i) x(i+1)]) > mu * x(i-1))
-                            scale =  mu * (x(i-1)) / norm([x(i) x(i+1)]);
-                            x(i) = scale * x(i);
-                            x(i+1) = scale * x(i+1);
-                        end
+                nind = 1:3:contactConstraintEndInd;
+                tind = 2:3:contactConstraintEndInd;
+                for i = nind
+                    ri = bsub(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                    if(x(i) < 0)
+                        x(i) = 0;
                     end
                 end
-                bsub = bsub - (cpv0+A*x);
-                lambdax = lambdax + x / substeps;
-                rx = b - A*lambdax;
-                this.rs(iter) = norm(rx(rx>0));
-            end
-            this.itercount = substeps;
-            %lambda = x;
-            %save('GS_lambda.mat',"lambda");
-        end
 
-        function [lambdax] = Temporal_Gauss_Sidiel_Joints(this, A, b, substeps)
-            n = size(b,1);
-            lambdax = zeros(n,1);
-            x = zeros(n,1);
-            d = 0;
-            cpv0 = -(b + d);
-            d = d * substeps;
-            bsub = - (cpv0 + d);
-            bsub = bsub - (cpv0+A*x);
-            lambdax = lambdax + x / substeps;
-            for iter = 1:substeps
-                for i = 1:n
+                for i = tind
+                    ri = bsub(i:i+1) - A(i:i+1,:) * x;
+                    x(i) = x(i) + ri(1) ./ A(i,i); 
+                    x(i+1) = x(i+1) + ri(2) ./ A(i+1,i+1);
+
+                    if (norm([x(i) x(i+1)]) > mu * x(i-1))
+                        scale =  mu * (x(i-1)) / norm([x(i) x(i+1)]);
+                        x(i) = scale * x(i);
+                        x(i+1) = scale * x(i+1);
+                    end
+                end
+
+                for i = contactConstraintEndInd + 1 : n
                     ri = bsub(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
                 end
@@ -134,185 +109,107 @@ classdef ConstraintSolver < handle
             %save('GS_lambda.mat',"lambda");
         end
 
-        function [x, lambdav] = Shock_Propagation_lbl(this, A, Asp, b, d, blocks, mu)
-            n = size(b,1);
-            x = zeros(n,1);
-            upiterMax = 75;
-            downiterMax = 75;
-            substeps = 150;
-            iterTotal = 0;
-            upwardSuccess = true;
-            downwardSuccess = true;
-            this.rs = zeros(this.itermax,1);
-            AspT = Asp';
-            layers = length(blocks);
-            r = b - A * x;
-            dx = zeros(n,1);
-            nc = 0;
-
-            for l = 1:layers
-                nind = blocks{l};
-                nind = nind(1:3:end);
-                tind = blocks{l};
-                tind = tind(2:3:end);
-                for iter = 1:upiterMax
-                    rsl0 = r(blocks{l})-Asp(blocks{l},:)*dx;
-
-                    for i = nind
-                        ri = r(i) - Asp(i,:) * dx;
-                        dx(i) = dx(i) + ri ./ Asp(i,i); 
-                        
-                        if(mod(i,3) == 1)
-                            if(x(i) + dx(i) < 0)
-                                dx(i) = -x(i);
-                            end
-                        end
-                        
-                        nc = nc + 1;
-                        if(mod(nc,n)==0)
-                            rsg = b - A*(x+dx);
-                            this.rs(nc/n) = norm(rsg(rsg>0));
-                        end
-                    end
-
-                    for i = tind
-                        ri = r(i:i+1) - Asp(i:i+1,:) * dx;
-                        %dx(i:i+1) = dx(i:i+1) + Asp(i:i+1,i:i+1)\ri; 
-                        dx(i) = dx(i) + ri(1) / Asp(i,i);
-                        dx(i+1) = dx(i+1) + ri(2) / Asp(i+1,i+1);
-
-                        if (norm([x(i) + dx(i) x(i+1) + dx(i+1)]) > mu * (x(i-1)+dx(i-1)))
-                            scale =  mu * (x(i-1)+dx(i-1)) / norm([x(i) + dx(i) x(i+1) + dx(i+1)]);
-                            dx(i) = scale * (x(i) + dx(i)) - x(i);
-                            dx(i+1) = scale * (x(i+1) + dx(i+1)) - x(i+1);
-                        end
-
-                        nc = nc + 2;
-                        if(mod(nc,n)==0)
-                            rsg = b - A*(x+dx);
-                            this.rs(nc/n) = norm(rsg(rsg>0));
-                        end
-                    end
-
-                    rsl = r(blocks{l})-Asp(blocks{l},:)*dx;
-                    if(norm(rsl-rsl0) < 1e-6)
-                        break;
-                    end
+        function [x, xv] = SOCP(this, L, b, mu)
+            n = length(b);
+            dsc = zeros(n+1,1);
+            dsc(end) =1;
+            gamma = -1;
+            Asc = [L' zeros(size(L,2),1); zeros(1,size(L,1)) 1];
+            fsc = [-b; 1];
+            cvx_begin quiet
+                variable t;
+                variable x(n);
+                expression u(n+1);
+                u = [x; t];
+                minimize( fsc'*u );
+                norm( Asc*u ) <= dsc'*u-gamma;
+                for i = 1 : 3 : n
+                    norm( u(i+1:i+2) ) <= mu*u(i);
                 end
-                rsln = rsl(1:3:end);
-                deltax = -Asp(blocks{l},:)*dx;
-                if(~all(rsln(deltax(1:3:end)<-1e-1) > -1))
-                    upwardSuccess = false;
+            cvx_end
+            xv = x;
+            this.itercount = cvx_slvitr;
+            this.rs = zeros(this.itermax,1);
+        end
+
+
+        function [x, xv] = Cone_GPQP(this, A, b, mu, contactConstraintEndInd)
+            options.ProjectionMethod = 'direct';
+            options.MaxIterations = 1000;
+            options.CGMaxIterations=200;
+            options.Tolerance = 1e-6;
+
+            l = -inf(length(b),1);
+            u = inf(length(b),1);
+            for i = 1:3:contactConstraintEndInd
+                l(i) = 0;
+            end
+            x = zeros(length(b),1);
+
+            [x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu,contactConstraintEndInd);
+            xv = x;
+            this.rs = zeros(this.itermax,1);
+            iter = 1;
+            for i = 1:output.iterations
+                this.rs(iter:iter+output.cgiterations(i)-1) = output.rs(i);
+                iter = iter+output.cgiterations(i);
+                if(iter > this.itermax)
                     break;
                 end
             end
-            rsp = r - tril(Asp - AspT) * dx;
-            %rsp = b - (A - AspT) * x;
-            %x = pinv(AspT)*rsp;
-            %x = zeros(n,1);
-            if(upwardSuccess)
-                for l = layers:-1:1
-                    nind = blocks{l};
-                    nind = nind(1:3:end);
-                    tind = blocks{l};
-                    tind = tind(2:3:end);
-                    for iter = 1:downiterMax
-                        rsl0 = rsp(blocks{l})-AspT(blocks{l},:)*dx;
-    
-                        for i = nind
-                            ri = rsp(i) - AspT(i,:) * dx;
-                            dx(i) = dx(i) + ri ./ AspT(i,i); 
-                            if(mod(i,3) == 1)
-                                if(x(i) + dx(i) < 0)
-                                    dx(i) = -x(i);
-                                end
-                            end
-                            nc = nc + 1;
-                            if(mod(nc,n)==0)
-                                rsg = b - A*(x+dx);
-                                this.rs(nc/n) = norm(rsg(rsg>0));
-                            end
-                        end
-    
-                        for i = tind
-                            ri = r(i:i+1) - AspT(i:i+1,:) * dx;
-                            %dx(i:i+1) = dx(i:i+1) + AspT(i:i+1,i:i+1)\ri;
-                            dx(i) = dx(i) + ri(1) / AspT(i,i);
-                            dx(i+1) = dx(i+1) + ri(2) / AspT(i+1,i+1);
-                                
-                            if (norm([x(i) + dx(i) x(i+1) + dx(i+1)]) > mu * (x(i-1)+dx(i-1)))
-                                scale =  mu * (x(i-1)+dx(i-1)) / norm([x(i) + dx(i) x(i+1) + dx(i+1)]);
-                                dx(i) = scale * (x(i) + dx(i)) - x(i);
-                                dx(i+1) = scale * (x(i+1) + dx(i+1)) - x(i+1);
-                            end
+            this.itercount = iter-1;
+        end
 
-                            nc = nc + 2;
-                            if(mod(nc,n)==0)
-                                rsg = b - A*(x+dx);
-                                this.rs(nc/n) = norm(rsg(rsg>0));
-                            end
-                        end
-                        rsl = rsp(blocks{l})-AspT(blocks{l},:)*dx;
-                        if(norm(rsl-rsl0) < 1e-6)
-                            break;
-                        end
-                    end
-                    rsln = rsl(1:3:end);
-                    deltax = -AspT(blocks{l},:)*dx;
-                    if(~all(rsln(deltax(1:3:end)<-1e-1) > -1))
-                        downwardSuccess = false;
-                        break;
-                    end
-                end
+        function [x, xv] = Staggered(this, A, b, mu)
+            options.ProjectionMethod = 'none';
+            options.MaxIterations = 100;
+            options.Tolerance = 1e-9;
+            n = length(b);
+            l = zeros(n,1);
+            u = inf(n,1);
+            x = zeros(n,1);
+            for i = 1:3:n
+                l(i+1:i+2) = -x(i)*mu;
+                u(i+1:i+2) = x(i)*mu;
             end
-            x = x + dx;
-            iterTotal = max(ceil(nc/n),1);
-            this.itercount = iterTotal;
-            rsg = b - A*x;
-            this.rs(iterTotal) = norm(rsg(rsg>0));
-            lambdav = x;
+            nind = false(n,1);
+            nind(1:3:n) = true;
+            tind = ~nind;
+            iter = 1;
+            this.rs = zeros(this.itermax,1);
+            %{
+            while(iter < this.itermax)
+                bn = b(nind) - A(nind,tind)*x(tind);
+                [xn, f, exitflag, output, lambda]= gpqp(A(nind,nind),-bn,l(nind),u(nind),x(nind), options);
+                %[dx_n,~,~,~,lambdaqp] = quadprog(A(1:3:n,1:3:n),-db(1:3:n),[],[],[],[],l_n,[],[]);
+                x(nind) = xn;
+                for i = 1:3:n
+                    l(i+1:i+2) = -x(i)*mu;
+                    u(i+1:i+2) = x(i)*mu;
+                end
+
+                bt = b(tind) - A(tind,nind)*x(nind);
+                [xt, f, exitflag, output, lambda]= gpqp(A(tind,tind),-bt,l(tind),u(tind),x(tind), options);
+                x(tind) = xt;
+
+                this.rs(iter) = norm(b - A*x);
+                iter = iter + 1;
+            end
+            %}
             
-            if(~downwardSuccess||~upwardSuccess)
-                lambdax = zeros(n,1);
-                x = zeros(n,1);
-                cpv0 = -(b + d);
-                d = d * substeps;
-                bsub = - (cpv0 + d);
-                for iter = 1:substeps
-                    for l = 1:layers
-                        nind = blocks{l};
-                        nind = nind(1:3:end);
-                        tind = blocks{l};
-                        tind = tind(2:3:end);
-                        for i = nind
-                            ri = bsub(i) - A(i,:)*x;
-                            x(i) = x(i) + ri / A(i,i);
-                            if(x(i) < 0)
-                                x(i) = 0;
-                            end
-                        end
-    
-                        for i = tind
-                            ri = bsub(i:i+1) - A(i:i+1,:) * x;
-                            x(i) = x(i) + ri(1) ./ A(i,i); 
-                            x(i+1) = x(i+1) + ri(2) ./ A(i+1,i+1);
-    
-                            if (norm([x(i) x(i+1)]) > mu * x(i-1))
-                                scale =  mu * (x(i-1)) / norm([x(i) x(i+1)]);
-                                x(i) = scale * x(i);
-                                x(i+1) = scale * x(i+1);
-                            end
-                        end
-                    end
-                    bsub = bsub - (cpv0+A*x);
-                    lambdax = lambdax + x / substeps;
-                    rx = b - A*lambdax;
-                    this.rs(iterTotal + iter) = norm(rx(rx>0));
+            [x, f, exitflag, output, lambda]= gpqp_staggered(A,-b,l,u,x,options,mu);
+            this.rs = zeros(this.itermax,1);
+            iter = 1;
+            for i = 1:output.iterations
+                this.rs(iter:iter+output.cgiterations(i)-1) = output.rs(i);
+                iter = iter+output.cgiterations(i);
+                if(iter > this.itermax)
+                    break;
                 end
-                lambdav = x;
-                x = lambdax;
-                this.itercount = iterTotal + substeps;
             end
+            
+            xv = x;
+            this.itercount = iter-1;
         end
 
         %%

@@ -6,7 +6,6 @@ classdef Collision < handle
         contactNum
         constraints
         ground  %If this is a ground collision
-        broken  %If we need to do collision detecitno again
         index   % Global begining index for each collision 
         mIndces % Indices in the matrix
         nextColl % List of next collisions
@@ -28,7 +27,6 @@ classdef Collision < handle
             this.body1 = body1;
             this.body2 = body2;
             this.ground = ground;
-            this.broken = true;
             this.index = 0;
             if(this.ground)
                 this.mu = this.body1.mu;

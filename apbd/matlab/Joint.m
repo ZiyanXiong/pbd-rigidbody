@@ -41,5 +41,8 @@ classdef Joint < handle
         %% Compute b
         compute_b;
 
+        %% Apply force and torque
+        applyForceTorque(this,f,t,timestep);
+
     end
 end

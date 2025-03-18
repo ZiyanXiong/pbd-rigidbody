@@ -7,6 +7,8 @@ classdef Model < handle
         joints %list of joints
 		collider % collision handler
 		grav % gravity
+        f % force for each body at current timestep
+        tau % torque for each body at current timestep
 		ground % ground transform, with Z up
         biasCoefficient
 		
@@ -36,7 +38,6 @@ classdef Model < handle
 		axis % initial axis
 		video %
         solverType % 1: TGS 2: 2PSP
-        useGlobalMatrix
         savedBodyStatesPath
         iterVec
         rVec
@@ -73,7 +74,6 @@ classdef Model < handle
 			this.plotH = false;
 			this.computeH = true;
             this.useContactCaching = false;
-            this.useGlobalMatrix = false;
 			this.Hexpected = zeros(1,2);
 
 			% Drawing etc.
@@ -90,7 +90,6 @@ classdef Model < handle
 
 		%%
 		function init(this)
-            this.collider = apbd.Collider(this);
 			if usejava('jvm')
 				colormap('default'); % Restore colormap mode
 			end
@@ -105,7 +104,7 @@ classdef Model < handle
 			% Other initial values
 			this.steps = ceil(this.tEnd/this.h);
 			this.hs = this.h/this.substeps;
-			this.k = 0;
+			this.k = 1;
 			this.ks = 0;
 
 			this.computeEnergies();
@@ -118,12 +117,12 @@ classdef Model < handle
 
 		%%
 		function simulate(this)
-			while this.k < this.steps
+			while this.k <= this.steps
 				this.ks = 0;
-                if this.k == 9
+                if this.k == 34
                     fprintf("Pause.");
                 end
-                if(~this.useGlobalMatrix)
+                if(this.solverType == 1)
                     this.solveConTGS();
                 else
                     this.solveConGlobal();
@@ -143,103 +142,36 @@ classdef Model < handle
 
 		%%
 		function stepBDF1(this)
-            f = zeros(3,1);
+            this.f = zeros(length(this.bodies), 3);
+            this.tau = zeros(length(this.bodies), 3);
+            for i = 1 : length(this.joints)
+                [this.f, this.tau] = this.joints{i}.applyForceTorque(this.f, this.tau, this.k);
+            end
 			for i = 1 : length(this.bodies)
-                if(this.modelID == 11 && i==8 && this.k<20)
-                    this.bodies{i}.stepBDF1(this.h,this.grav,[0 -800000 0]');
-                else
-				    this.bodies{i}.stepBDF1(this.h,this.grav,f);
-                end
+			    this.bodies{i}.stepBDF1(this.h,this.grav,this.f(i,:)',this.tau(i,:)');
 			end
         end
 
 		%%
 		function solveConTGS(this)
             this.collider.run();
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.initConstraints(this.h, this.hs);
-                end
+            for i = this.collider.activeCollisions
+                this.collider.collisions{i}.initConstraints(this.h, this.hs);
             end
             for i = 1 : length(this.joints)
                 this.joints{i}.init(this.h, this.hs);
             end
             this.draw();
 
-            if(this.modelID == 9)
-                groundVelocity = zeros(6,1);
-                groundVelocity(4) = 5 * sin(this.k / 15 *pi);
-                groundVelocity(6) = 65 * sin(this.k / 12 *pi);
-                this.bodies{1}.setInitVelocity(groundVelocity);
-            end
-
 			this.stepBDF1();
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.compute_b0();
-                end
+            for i = this.collider.activeCollisions
+                this.collider.collisions{i}.compute_b0();
             end
 
-            if(this.solverType==1)
-                while this.ks < this.substeps
-                    %this.bodies{i}.stepBDF1(this.hs,this.grav,f);
-			        %this.draw();
-			        %fprintf('substep %d\n',this.ks);
-                    for i = 1 : length(this.constraints)
-				        this.constraints{i}.clear();
-                    end
-    
-				    %fprintf('  iter %d\n',iter);
-				    % Clear the Jacobi updates
-				    for i = 1 : length(this.bodies)
-					    this.bodies{i}.clearJacobi();
-				    end
-				    % Gauss-Seidel solve for non-collision constraints
-                    for j = 1 : length(this.constraints)
-					    this.constraints{j}.solve();
-                    end
-				    % Solve all collision normals at the position level
-				    %fprintf('    ');
-    			    %this.collider.run();
-    
-                    
-                    % Gauss-Seidal 
-                    for i = 1 : length(this.collider.activeCollisions)
-                        for j = this.collider.activeCollisions{i}
-                            this.collider.collisions{j}.solveCollisionNor(false);
-                            %this.collider.collisions{j}.solveCollisionTan();
-                        end
-                        
-                        for j = this.collider.activeCollisions{i}
-                            this.collider.collisions{j}.solveCollisionTan(false);
-                        end
-                        
-                    end
-
-                    % Gauss-Seidal 
-                    for i = 1 : length(this.joints)
-                        this.joints{i}.solveCollisionNor(false);
-                        this.joints{i}.solveCollisionTan(false);
-                    end
-    
-                    for i = 1 : length(this.bodies)
-                        this.bodies{i}.updateStates(this.hs);
-                    end
-                    %this.draw();
-				    this.t = this.t + this.hs;
-				    this.ks = this.ks + 1;
-                end
-                this.iterVec(end+1) = this.substeps;
-            else
-                iterSPMax = 75;
-                upwardSuccess = true;
-                downwardSuccess = true;
-                iterTotal = 0;
-                collisionTotal = 0;
-                for i = 1 : length(this.collider.activeCollisions)
-                    collisionTotal = collisionTotal + length(this.collider.activeCollisions{i});
-                end
-
+            while this.ks < this.substeps
+                %this.bodies{i}.stepBDF1(this.hs,this.grav,f);
+		        %this.draw();
+		        %fprintf('substep %d\n',this.ks);
                 for i = 1 : length(this.constraints)
 			        this.constraints{i}.clear();
                 end
@@ -256,146 +188,37 @@ classdef Model < handle
 			    % Solve all collision normals at the position level
 			    %fprintf('    ');
 			    %this.collider.run();
-    
+
                 
-                % 2PSP Upward
-                for i = 1 : length(this.collider.activeCollisions)
-                    isStable = true;
-                    for iterSP = 1:iterSPMax
-                        isConverged = true;
-                        for j = this.collider.activeCollisions{i}
-                            this.collider.collisions{j}.solveCollisionNor(true);
-                            %this.collider.collisions{j}.solveCollisionTan();
-                        end
-                        
-                        for j = this.collider.activeCollisions{i}
-                            this.collider.collisions{j}.solveCollisionTan(true);
-                            isConverged = isConverged && this.collider.collisions{j}.isConverged();
-                        end
-                        iterTotal = iterTotal + length(this.collider.activeCollisions{i});
-                        if(isConverged)
-                            break;
-                        end
-                    end
-                    for j = this.collider.activeCollisions{i}
-                        isStable = isStable && this.collider.collisions{j}.isStable();
-                    end
-                    if(i~=1 && ~isStable)
-                        upwardSuccess = false;
-                        break;
-                    end
+                % Gauss-Seidal 
+                for i = this.collider.activeCollisions
+                    this.collider.collisions{i}.solveCollisionNor(false);
+                    this.collider.collisions{i}.solveCollisionTan(false);
                 end
 
-                if(upwardSuccess)
-                    % 2PSP Downward 
-                    for i = length(this.collider.activeCollisions):-1:1
-                        isStable = true;
-                        for iterSP = 1:iterSPMax
-                            isConverged = true;
-                            for j = this.collider.activeCollisions{i}
-                                this.collider.collisions{j}.solveCollisionNor(true);
-                                %this.collider.collisions{j}.solveCollisionTan();
-                            end
-                            
-                            for j = this.collider.activeCollisions{i}
-                                this.collider.collisions{j}.solveCollisionTan(true);
-                                isConverged = isConverged && this.collider.collisions{j}.isConverged();
-                            end
-                            iterTotal = iterTotal + length(this.collider.activeCollisions{i});
-                            if(isConverged)
-                                break;
-                            end
-                        end
-                        for j = this.collider.activeCollisions{i}
-                            isStable = isStable && this.collider.collisions{j}.isStable();
-                        end
-                        if(i~=1 && ~isStable)
-                            downwardSuccess = false;
-                            break;
-                        end
+                % Gauss-Seidal 
+                for i = 1 : length(this.joints)
+                    this.joints{i}.solveCollisionNor(false);
+                    this.joints{i}.solveCollisionTan(false);
+                end
 
-                        for j = this.collider.activeCollisions{i}
-                            this.collider.collisions{j}.applyLambdaSP();
-                        end
-                    end
+                for i = 1 : length(this.bodies)
+                    this.bodies{i}.updateStates(this.hs);
                 end
-                iterTotal = ceil(iterTotal/collisionTotal);
-                if(~upwardSuccess || ~downwardSuccess)
-                    for i = 1:length(this.bodies)
-                        this.bodies{i}.resetVelocity();
-                    end
-                    for i = 1 : length(this.collider.activeCollisions)
-                        for j = this.collider.activeCollisions{i}
-                            this.collider.collisions{j}.resetLambdas();
-                        end
-                    end
-                    while this.ks < this.substeps
-                        %this.bodies{i}.stepBDF1(this.hs,this.grav,f);
-			            %this.draw();
-			            %fprintf('substep %d\n',this.ks);
-                        for i = 1 : length(this.constraints)
-				            this.constraints{i}.clear();
-                        end
-        
-				        %fprintf('  iter %d\n',iter);
-				        % Clear the Jacobi updates
-				        for i = 1 : length(this.bodies)
-					        this.bodies{i}.clearJacobi();
-				        end
-				        % Gauss-Seidel solve for non-collision constraints
-                        for j = 1 : length(this.constraints)
-					        this.constraints{j}.solve();
-                        end
-				        % Solve all collision normals at the position level
-				        %fprintf('    ');
-    			        %this.collider.run();
-        
-                        
-                        % Gauss-Seidal 
-                        for i = 1 : length(this.collider.activeCollisions)
-                            for j = this.collider.activeCollisions{i}
-                                this.collider.collisions{j}.solveCollisionNor(false);
-                                %this.collider.collisions{j}.solveCollisionTan();
-                            end
-                            
-                            for j = this.collider.activeCollisions{i}
-                                this.collider.collisions{j}.solveCollisionTan(false);
-                            end
-                            
-                        end
-        
-                        for i = 1 : length(this.bodies)
-                            this.bodies{i}.updateStates(this.hs);
-                        end
-                        %this.draw();
-				        this.t = this.t + this.hs;
-				        this.ks = this.ks + 1;
-                    end
-                    this.iterVec(end+1) = iterTotal + this.substeps;
-                else
-                    for i = 1 : length(this.bodies)
-                        this.bodies{i}.updateStatesDirect(this.h);
-                    end
-			        this.t = this.t + this.h;
-                    this.iterVec(end+1) = iterTotal;
-                end
+                %this.draw();
+			    this.t = this.t + this.hs;
+			    this.ks = this.ks + 1;
             end
+            this.iterVec(end+1) = this.substeps;
 
-            
             for i = 1 : length(this.bodies)
                 this.bodies{i}.initVelocitySolve(this.h);
             end
 
             for iter = 1: 10
-                for i = 1 : length(this.collider.activeCollisions)
-                    for j = this.collider.activeCollisions{i}
-                        this.collider.collisions{j}.solveCollisionNorVel(10);
-                        %this.collider.collisions{j}.solveCollisionTan();
-                    end
-                    
-                    for j = this.collider.activeCollisions{i}
-                        this.collider.collisions{j}.solveCollisionTanVel(10);
-                    end
+                for i = this.collider.activeCollisions
+                    this.collider.collisions{i}.solveCollisionNorVel(10);
+                    this.collider.collisions{i}.solveCollisionTanVel(10);
                 end
                 for i = 1 : length(this.bodies)
                     this.bodies{i}.updateVelocities(1/10);
@@ -408,20 +231,16 @@ classdef Model < handle
 
             n = 1;
             ci = 1;
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.index = ci;
-                    this.collider.collisions{j}.mIndces = n : n - 1 + this.collider.collisions{j}.contactNum * 3;
-                    n = n + this.collider.collisions{j}.contactNum * 3;
-                    this.collider.collisions{j}.compute_b();
-                    ci = ci + 1;
-                end
+            for i = this.collider.activeCollisions
+                this.collider.collisions{i}.index = ci;
+                this.collider.collisions{i}.mIndces = n : n - 1 + this.collider.collisions{i}.contactNum * 3;
+                n = n + this.collider.collisions{i}.contactNum * 3;
+                this.collider.collisions{i}.compute_b();
+                ci = ci + 1;
             end
             rs = zeros(n-1,1);
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    rs(this.collider.collisions{j}.mIndces) = this.collider.collisions{j}.b;
-                end
+            for i = this.collider.activeCollisions
+                rs(this.collider.collisions{i}.mIndces) = this.collider.collisions{i}.b;
             end
 
             this.rVec(end+1) = norm(rs(rs>0));
@@ -454,24 +273,14 @@ classdef Model < handle
 		%%
         function solveConGlobal(this)
             this.collider.run();
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    this.collider.collisions{j}.initConstraints(this.h, this.hs);
-                end
+            for i = this.collider.activeCollisions
+                this.collider.collisions{i}.initConstraints(this.h, this.hs);
             end
-
             for i = 1 : length(this.joints)
                 this.joints{i}.init(this.h, this.hs);
             end
             this.draw();
 
-            if(this.modelID == 9)
-                groundVelocity = zeros(6,1);
-                groundVelocity(4) = 5 * sin(this.k / 15 *pi);
-                groundVelocity(6) = 65* sin(this.k / 12 *pi);
-                this.bodies{1}.setInitVelocity(groundVelocity);
-            end
-            
 			this.stepBDF1();
             for iter = 1 : this.iters
 			    %this.draw();
@@ -495,15 +304,13 @@ classdef Model < handle
 
                 n = 1;
                 ci = 1;
-                for i = 1 : length(this.collider.activeCollisions)
-                    for j = this.collider.activeCollisions{i}
-                        this.collider.collisions{j}.index = ci;
-                        this.collider.collisions{j}.mIndces = n : n - 1 + this.collider.collisions{j}.contactNum * 3;
-                        n = n + this.collider.collisions{j}.contactNum * 3;
-                        this.collider.collisions{j}.computeJ_b();
-                        this.collider.collisions{j}.compute_d();
-                        ci = ci + 1;
-                    end
+                for i = this.collider.activeCollisions
+                    this.collider.collisions{i}.index = ci;
+                    this.collider.collisions{i}.mIndces = n : n - 1 + this.collider.collisions{i}.contactNum * 3;
+                    n = n + this.collider.collisions{i}.contactNum * 3;
+                    this.collider.collisions{i}.computeJ_b();
+                    this.collider.collisions{i}.compute_d();
+                    ci = ci + 1;
                 end
 
                 for i = 1 : length(this.joints)
@@ -518,12 +325,10 @@ classdef Model < handle
                 n = n-1;
                 b = zeros(n,1);
                 d = zeros(n,1);
-                for i = 1 : length(this.collider.activeCollisions)
-                    for j = this.collider.activeCollisions{i}
-                        inds = this.collider.collisions{j}.mIndces;
-                        b(inds) = this.collider.collisions{j}.b;
-                        d(inds) = this.collider.collisions{j}.d;
-                    end
+                for i = this.collider.activeCollisions
+                    inds = this.collider.collisions{i}.mIndces;
+                    b(inds) = this.collider.collisions{i}.b;
+                    d(inds) = this.collider.collisions{i}.d;
                 end
 
                 for i = 1 : length(this.joints)
@@ -532,36 +337,22 @@ classdef Model < handle
                     d(inds) = this.joints{i}.d;
                 end
 
-
-                [~, ind] = sort(cellfun(@(body) body.layer, this.bodies));
                 for i = 1:length(this.bodies)
-                    this.bodies{ind(i)}.colIndices = (i - 1)*6+1 : i*6;
+                    this.bodies{i}.colIndices = (i - 1)*6+1 : i*6;
                 end
                 L = zeros(n,6*length(this.bodies));
-                L_sp = zeros(n,6*length(this.bodies));
-                blocks = {};
 
-                for i = 1 : length(this.collider.activeCollisions)
-                    block = [];
-                    for j = this.collider.activeCollisions{i}
-                        rows = this.collider.collisions{j}.mIndces;
-                        block = [block rows];
-                        if(this.collider.collisions{j}.ground)
-                            cols =  this.collider.collisions{j}.body1.colIndices;
-                            L(rows,cols) = this.collider.collisions{j}.J1I;
-                            L_sp(rows,cols) = this.collider.collisions{j}.J1I;
-                        else
-                            cols =  this.collider.collisions{j}.body1.colIndices;
-                            L(rows,cols) = this.collider.collisions{j}.J1I;
-                            L_sp(rows,cols) = this.collider.collisions{j}.J1I;
-                            cols =  this.collider.collisions{j}.body2.colIndices;
-                            L(rows,cols) = this.collider.collisions{j}.J2I;
-                            if(this.collider.collisions{j}.body1.layer == this.collider.collisions{j}.body2.layer)
-                                L_sp(rows,cols) = this.collider.collisions{j}.J2I;
-                            end
-                        end
+                for i = this.collider.activeCollisions
+                    rows = this.collider.collisions{i}.mIndces;
+                    if(this.collider.collisions{i}.ground)
+                        cols =  this.collider.collisions{i}.body1.colIndices;
+                        L(rows,cols) = this.collider.collisions{i}.J1I;
+                    else
+                        cols =  this.collider.collisions{i}.body1.colIndices;
+                        L(rows,cols) = this.collider.collisions{i}.J1I;
+                        cols =  this.collider.collisions{i}.body2.colIndices;
+                        L(rows,cols) = this.collider.collisions{i}.J2I;
                     end
-                    blocks{end+1} = block;
                 end
 
                 for i = 1 : length(this.joints)
@@ -569,87 +360,37 @@ classdef Model < handle
                     if(this.joints{i}.ground)
                         cols =  this.joints{i}.body1.colIndices;
                         L(rows,cols) = this.joints{i}.J1I;
-                        L_sp(rows,cols) = this.joints{i}.J1I;
                     else
                         cols =  this.joints{i}.body1.colIndices;
                         L(rows,cols) = this.joints{i}.J1I;
-                        L_sp(rows,cols) = this.joints{i}.J1I;
                         cols =  this.joints{i}.body2.colIndices;
                         L(rows,cols) = this.joints{i}.J2I;
-                        if(this.joints{i}.body1.layer == this.joints{i}.body2.layer)
-                            L_sp(rows,cols) = this.joints{i}.J2I;
-                        end
                     end
                 end
 
                 A = L*L';
-                Asp = L * L_sp';
                 mu = this.bodies{1}.mu;
 
-                itermax = 150;                
+                itermax = 500;                
                 solver = ConstraintSolver(itermax,1e-6);
-                if(this.solverType ==  1)
-                    [lambdas, lambdav] = solver.Temporal_Gauss_Sidiel(A, b, d, blocks, mu, this.substeps);
-                    %lambdas = solver.Temporal_Gauss_Sidiel_Joints(A, b, this.substeps);
+                if(isempty(this.joints))
+                    contactConstraintEndInd = length(b);
                 else
-                    [lambdas, lambdav] = solver.Shock_Propagation_lbl(A, Asp, b, d, blocks, mu);
+                    contactConstraintEndInd = this.joints{1}.mIndces(1) - 1;
                 end
+                %[lambdas, lambdav] = solver.Cone_GPQP(A, b, mu, contactConstraintEndInd);
+                %[lambdas, lambdav] = solver.Temporal_Gauss_Sidiel(A, b, d, contactConstraintEndInd, mu, 150,lambdas);
+                %[lambdas, lambdav] = solver.SOCP(L, b, mu);
+                [lambdas, lambdav] = solver.Staggered(A, b, mu);
                 this.iterVec(end+1) = solver.itercount;
                 this.rVec(end+1) = solver.rs(this.iterVec(end));
-                %lambdas = pinv(A)*b;
-                %{
-                if(this.solverType == 2 && this.k == 1)
-                    %clf;
-                    solver.Gauss_Sidiel(A, b, mu);
-                    %solver.draw('Gauss-Seidel, t = 1e-2');
-                    rs_gs = solver.rs;
-                    
-                    %{
-                    %save("gs_rs_1e-4.mat", "rs_gs_1e_4");
-                    load("gs_rs_1e-3.mat");
-                    semilogy(1:size(rs_gs_1e_3,1), rs_gs_1e_3, 'DisplayName','Gauss-Seidel, t = 1e-3','linewidth',2);
-                    hold on;
-        
-                    load("gs_rs_1e-4.mat");
-                    semilogy(1:size(rs_gs_1e_4,1), rs_gs_1e_4, 'DisplayName','Gauss-Seidel, t = 1e-4','linewidth',2);
-                    hold on;
-                    %}
-        
-                    %lambdas = solver.Staggered(A, b, mu);
-                    %solver.draw('Staggered Projections');
-                    %lambdas = solver.Shock_Propagation(A, b, Asp, mu);
-                    solver.Shock_Propagation_lbl(A, Asp, b, blocks, mu);
-                    %lambdas = solver.Shock_Propagation_Mix(L,L_sp, b, blocks, mu);
-                    %lambdas = solver.Shock_Propagation_re(A,Asp, b, blocks, mu);
-                    %solver.draw('2 Way Shock Propagation, t = 1e-2');
-                    rs_2psp = solver.rs;
-                    %lambdas = solver.Cone_GPQP(A, b, mu);
-                    %solver.draw('Gradient Projection QP');
-                    %legend
-                    %xlabel('Iteration number') 
-                    %ylabel('Residual') 
-                    %title('Convergence plot for different solver')
-                    save(strcat(this.resultFolder,sprintf("residual_per_iteration\\2PSP_%d.mat",this.k)), "rs_gs", "rs_2psp");
-                end
-                %}
-                %{
-                if(this.k == 30)
-                    E_List = {};
-                    for i = 1:length(this.bodies)
-                        E_List{end+1} = this.bodies{i}.computeTransform();
-                    end
-                    save("Initial_Transform.mat","E_List");
-                end
-                %}
 
-                for i = 1 : length(this.collider.activeCollisions)
-                    for j = this.collider.activeCollisions{i}
-                        l = this.collider.collisions{j}.contactNum*3 - 1;
-                        start = this.collider.collisions{j}.mIndces(1);
-                        lambdai = lambdas(start:start+l);
-                        for k = 1: this.collider.collisions{j}.contactNum
-                            this.collider.collisions{j}.constraints{k}.applyLambda(lambdai(3*(k-1) + 1: 3*k));
-                        end
+                for i = this.collider.activeCollisions
+                    l = this.collider.collisions{i}.contactNum*3 - 1;
+                    start = this.collider.collisions{i}.mIndces(1);
+                    lambdai = lambdas(start:start+l);
+                    for j = 1: this.collider.collisions{i}.contactNum
+                        this.collider.collisions{i}.constraints{j}.applyLambda(lambdai(3*(j-1) + 1: 3*j));
                     end
                 end
 
@@ -667,25 +408,33 @@ classdef Model < handle
                 end
             end
 
-            [~,lambdav] = solver.Temporal_Gauss_Sidiel(A, b+d, zeros(n,1), blocks, mu, 10, lambdav);
+            [~,lambdav] = solver.Temporal_Gauss_Sidiel(A, b+d, zeros(n,1), contactConstraintEndInd, mu, 10, lambdav);
             dlambdas = lambdav - lambdas;
             %dlambdavs = lambdavs - lambdas;
-            for i = 1 : length(this.collider.activeCollisions)
-                for j = this.collider.activeCollisions{i}
-                    l = this.collider.collisions{j}.contactNum*3 - 1;
-                    start = this.collider.collisions{j}.mIndces(1);
-                    lambdai = dlambdas(start:start+l);
-                    for k = 1: this.collider.collisions{j}.contactNum
-                        this.collider.collisions{j}.constraints{k}.applyLambda(lambdai(3*(k-1) + 1: 3*k));
-                    end
+
+            for i = this.collider.activeCollisions
+                l = this.collider.collisions{i}.contactNum*3 - 1;
+                start = this.collider.collisions{i}.mIndces(1);
+                lambdai = dlambdas(start:start+l);
+                for j = 1: this.collider.collisions{i}.contactNum
+                    this.collider.collisions{i}.constraints{j}.applyLambda(lambdai(3*(j-1) + 1: 3*j));
                 end
             end
-            
+
+            for i = 1 : length(this.joints)
+                l = this.joints{i}.constraintNum*3 - 1;
+                start = this.joints{i}.mIndces(1);
+                lambdai = dlambdas(start:start+l);
+                for j = 1: this.joints{i}.constraintNum
+                    this.joints{i}.constraints{j}.applyLambda(lambdai(3*(j-1) + 1: 3*j));
+                end
+            end
             
 			this.t = this.t + this.h;
             for i = 1 : length(this.bodies)
                 this.bodies{i}.integrateStates();
             end
+
             if(this.solverType == 1)
                  fid = fopen(fullfile(this.resultFolder, sprintf('Body_States_TGS_%d.txt',this.substeps)), 'a+');
                 if(this.k==0)
@@ -770,12 +519,8 @@ classdef Model < handle
                 end
 
 				% Draw collisions
-		        for i = 1 : length(this.collider.activeCollisions)
-                    for collisions = this.collider.activeCollisions
-                        for j = collisions{1}
-                            this.collider.collisions{j}.draw();
-                        end
-                    end
+                for i = this.collider.activeCollisions
+                    this.collider.collisions{i}.draw();
                 end
 
 				% Lighting
