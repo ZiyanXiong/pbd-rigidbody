@@ -120,8 +120,8 @@ classdef Model < handle
 		function simulate(this)
 			while this.k < this.steps
 				this.ks = 0;
-                if this.k == 9
-                    %fprintf("Pause.");
+                if this.k == 30
+                    fprintf("Pause.");
                 end
                 if(~this.useGlobalMatrix)
                     this.solveConTGS();
@@ -145,7 +145,7 @@ classdef Model < handle
 		function stepBDF1(this)
             f = zeros(3,1);
 			for i = 1 : length(this.bodies)
-                if(this.modelID == 11 && i==8 && this.k<20)
+                if(this.modelID == 11 && i==46 && this.k<20)
                     this.bodies{i}.stepBDF1(this.h,this.grav,[0 -800000 0]');
                 else
 				    this.bodies{i}.stepBDF1(this.h,this.grav,f);
@@ -542,10 +542,10 @@ classdef Model < handle
                 blocks = {};
 
                 for i = 1 : length(this.collider.activeCollisions)
-                    block = [];
+                    block = {};
                     for j = this.collider.activeCollisions{i}
                         rows = this.collider.collisions{j}.mIndces;
-                        block = [block rows];
+                        block{end+1} = rows;
                         if(this.collider.collisions{j}.ground)
                             cols =  this.collider.collisions{j}.body1.colIndices;
                             L(rows,cols) = this.collider.collisions{j}.J1I;
@@ -680,8 +680,7 @@ classdef Model < handle
                     end
                 end
             end
-            
-            
+
 			this.t = this.t + this.h;
             for i = 1 : length(this.bodies)
                 this.bodies{i}.integrateStates();
@@ -769,6 +768,7 @@ classdef Model < handle
                     this.joints{i}.draw();
                 end
 
+                %{
 				% Draw collisions
 		        for i = 1 : length(this.collider.activeCollisions)
                     for collisions = this.collider.activeCollisions
@@ -777,6 +777,7 @@ classdef Model < handle
                         end
                     end
                 end
+                %}
 
 				% Lighting
 				l = light('Style','local','Position',[0 -50 100]);

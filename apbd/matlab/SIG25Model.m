@@ -30,7 +30,7 @@ switch(modelID)
 		model.view = [0 0];
         model.solverType = solverType;
 
-		n = 10;
+		n = 2;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -38,7 +38,7 @@ switch(modelID)
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x =  0.0 * i;
+			x =  0.6*w * i;
 			y = 0;
 			z = (i-0.5 + i *0.0)*w;
             %z = 0.5 * w;
@@ -412,7 +412,7 @@ switch(modelID)
 		model.view = [0 0];
         model.solverType = solverType;
 
-		n = 10;
+		n = 20;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -776,7 +776,7 @@ switch(modelID)
 		model.name = 'Stacking: Jenga Add';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 1;
+		model.tEnd = 1.0;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
@@ -796,19 +796,21 @@ switch(modelID)
 
 		model.view = [45 45];
 
-        layers = 10;
+        layers = 25;
+        layerPattern = [4    10     8     6     2     2     1     9     7     8     1    10 ...
+             9     3     2     2     4     6     5     3     7     2     3     4    4]';
         for l = 1:layers
 		    for i = 1 : 3
-                if((l==4||l==9)&&(i==3))
+                if((layerPattern(l)<3)&&(i==1||i==3))
                     continue;
                 end
-                if((l==10)&&(i==2||i==1))
+                if((layerPattern(l)==3)&&(i==1))
                     continue;
                 end
-                if((l<4)&&(i==3||i==1))
+                if((layerPattern(l)==4)&&(i==2))
                     continue;
                 end
-                if((l<8&&l>5)&&(i==1))
+                if((layerPattern(l)==5)&&(i==3))
                     continue;
                 end
                 
@@ -818,13 +820,11 @@ switch(modelID)
     		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
                 R = se3.aaToMat([0 0 1], pi/2 * mod(l+1,2));
 			    E = eye(4);
-			    x = -4.03*w + 2.01*w*i;
+			    x = -4.03*w + 2.05*w*i;
 			    y = 0;
 			    z =-0.5*w + w*l;
-                if(l==10)
-                    x = x - 3.5 * w;
-                    y = y + 3.5*w;
-                    z = z + 1*w;
+                if(l==layers && i==1)
+                    z = z + 3*w;
                 end
                 E(1:3,1:3) = R;
 			    E(1:3,4) = R * [x y z]';
@@ -865,37 +865,40 @@ switch(modelID)
 		sides = [2*w 6*w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.2;
+		mu = 0.25;
 
 		model.ground.size = 20;
-		model.axis = 40*[-1 1 -1 1 0 1];
+		model.axis = 40*[-1 1 -1 1 0 2.5];
 		model.drawHz = 10;
 
 		model.view = [0 0];
-
-        layers = 10;
+        
+        layers = 25;
+        %layerPattern = randi([1,10],layers,1);
+        layerPattern = [4    10     8     6     2     2     1     9     7     8     1    10 ...
+             9     3     2     2     4     6     5     3     7     2     3     4    5]';
         for l = 1:layers
 		    for i = 1 : 3
-                if((l==4||l==9)&&(i==3))
+                if((layerPattern(l)<3)&&(i==1||i==3))
                     continue;
                 end
-                if((l==10)&&(i==2||i==1))
+                if((layerPattern(l)==3)&&(i==1))
                     continue;
                 end
-                if((l<4)&&(i==3||i==1))
+                if((layerPattern(l)==4)&&(i==2))
                     continue;
                 end
-                if((l<8&&l>5)&&(i==1))
+                if((layerPattern(l)==5)&&(i==3))
                     continue;
                 end
-                
+
 			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			    model.bodies{end}.collide = true;
 			    model.bodies{end}.mu = mu;
     		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
                 R = se3.aaToMat([0 0 1], pi/2 * mod(l+1,2));
 			    E = eye(4);
-			    x = -4.03*w + 2.01*w*i;
+			    x = -4.03*w + 2.05*w*i;
 			    y = 0;
 			    z =-0.5*w + w*l;
                 E(1:3,1:3) = R;
@@ -998,7 +1001,7 @@ switch(modelID)
 		model.name = 'Stacking: Circular';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 0.1;
+		model.tEnd = 0.5;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
@@ -1010,7 +1013,7 @@ switch(modelID)
 		sides = [2*w 3.5*w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.5;
+		mu = 0.3;
 
 		model.ground.size = 20;
 		model.axis = 20*[-1 1 -1 1 0 2];
@@ -1043,12 +1046,12 @@ switch(modelID)
         R = se3.aaToMat([0 0 1], 1*2*pi/5 + pi/5 * 24 + pi/2);
 	    E = eye(4);
 	    x = 0;
-	    y = 11.25*w;
+	    y = 7.25*w + 6.5*w;
 	    z =-0.5*w + w*24;
         E(1:3,1:3) = R;
 	    E(1:3,4) = R * [x y z]';
 	    model.bodies{end}.setInitTransform(E);
-        vw = R * [0 -400 20]';
+        vw = R * [0 -390 40]';
         model.bodies{end}.setInitVelocity([0 0 0 vw']');
         %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         
@@ -1096,17 +1099,17 @@ switch(modelID)
         for l = 1:2
 		    n = 10;
 		    for i = 1 : n
-			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w w w]),density);
+			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([w w w]),density);
 			    model.bodies{end}.collide = true;
 			    model.bodies{end}.mu = mu;
     		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
                 R = se3.aaToMat([0 0 1], 0.0);
 			    E = eye(4);
                 if(l == 1)
-			        x =  -3*w;
+			        x =  -7.5*w;
                     z = (i-0.5)*w;
                 else
-                    x = 3 *w;
+                    x = 7.5 *w;
                     z = (i-0.5 + 11)*w;
                 end
 			    y = 0;
@@ -1117,17 +1120,17 @@ switch(modelID)
             end
     
 		    for i = 1 : n/2
-			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w w 2*w]),density);
+			    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([w w 2*w]),density);
 			    model.bodies{end}.collide = true;
 			    model.bodies{end}.mu = mu;
     		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
                 R = se3.aaToMat([0 0 1], 0.0);
 			    E = eye(4);
                 if(l == 1)
-			        x =  3*w;
+			        x =  7.5*w;
                     z = (i-0.5)*2*w;
                 else
-                    x = -3*w;
+                    x = -7.5*w;
                     z = (i-0.5 + 5.5)*2*w;
                 end
 			    y = 0;
@@ -1135,7 +1138,7 @@ switch(modelID)
 			    E(1:3,4) = R * [x y z]';
 			    model.bodies{end}.setInitTransform(E);
             end
-		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([8*w w w]),density);
+		    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([16*w w w]),density);
 		    model.bodies{end}.collide = true;
 		    model.bodies{end}.mu = mu;
 		    %R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);

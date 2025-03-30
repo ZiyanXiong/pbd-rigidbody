@@ -5,10 +5,10 @@ model.init();
 model.simulate();
 %}
 
-for i = 13
-    model = SIG25Model(i,1/100,150,2,true);
+for i = 6
+    model = SIG25Model(i,1/60,150,2,true);
     model.init();
-    model.drawHz = 0;
+    model.drawHz = 10;
     model.simulate();
     if(model.solverType == 1)
         fileName = sprintf("iterVec_rVec_TGS_%d.mat", model.substeps);

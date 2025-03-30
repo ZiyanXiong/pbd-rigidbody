@@ -139,18 +139,24 @@ classdef Collider < handle
             for i = 1: this.bodyNum
                 bodyLayers(i) = this.model.bodies{i}.layer;
             end
-            [~, idx] = sort(bodyLayers);
-            sortedCollisions = cell(max(bodyLayers),1);
+            sortedCollisions = cell(max(bodyLayers),2);
             for i = 1:this.bodyNum
-                l = this.model.bodies{idx(i)}.layer;
-                for j = 1: length(this.model.bodies{idx(i)}.collisions)
-                    collind = this.model.bodies{idx(i)}.collisions(j);
-                    if(this.collisions{collind}.body1.layer == l)
-                        sortedCollisions{l} = [sortedCollisions{l}, this.model.bodies{idx(i)}.collisions(j)];
+                l = this.model.bodies{i}.layer;
+                for j = 1: length(this.model.bodies{i}.collisions)
+                    collind = this.model.bodies{i}.collisions(j);
+                    if(this.collisions{collind}.body1.index == i)
+                        if(this.collisions{collind}.body2.layer == l)
+                            sortedCollisions{l,2} = [sortedCollisions{l,2},  this.model.bodies{i}.collisions(j)];
+                        else
+                            sortedCollisions{l,1} = [sortedCollisions{l,1},  this.model.bodies{i}.collisions(j)];
+                        end
                     end
                 end
             end
-            this.activeCollisions = sortedCollisions;
+            this.activeCollisions = {};
+            for i = 1: size(sortedCollisions,1)
+                 this.activeCollisions{end+1} = [sortedCollisions{i,1}, sortedCollisions{i,2}];
+            end
         end
 		%%
 		function broadphase(this)
