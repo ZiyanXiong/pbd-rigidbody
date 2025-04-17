@@ -46,13 +46,14 @@ classdef Collider < handle
 			this.bpList2 = {};
             this.activeCollisions = [];
             %this.groundBodyIndex = [];
+            
             for i = 1:this.bodyNum
                 if(isinf(this.model.bodies{i}.Mp))
                     this.groundBodyIndex(end+1) = i;
                     this.model.bodies{i}.layer = 1;
                 end
             end
-
+            
 			this.broadphase();
 			this.narrowphase();
             this.constructBodyOrder();
@@ -145,6 +146,11 @@ classdef Collider < handle
                 for j = 1: length(this.model.bodies{i}.collisions)
                     collind = this.model.bodies{i}.collisions(j);
                     if(this.collisions{collind}.body1.index == i)
+                        if(isinf(this.collisions{collind}.body1.Mp))
+                            l2 = this.collisions{collind}.body2.layer;
+                            sortedCollisions{l2,2} = [sortedCollisions{l2,2},  this.model.bodies{i}.collisions(j)];
+                            continue;
+                        end
                         if(this.collisions{collind}.body2.layer == l)
                             sortedCollisions{l,2} = [sortedCollisions{l,2},  this.model.bodies{i}.collisions(j)];
                         else
@@ -189,10 +195,11 @@ classdef Collider < handle
 		%%
 		function narrowphase(this)
             if(isempty(this.groundBodyIndex))
-                saveGroundBodyIndex = true;
+                %saveGroundBodyIndex = true;
             else
-                saveGroundBodyIndex = false;
+                %saveGroundBodyIndex = false;
             end
+            saveGroundBodyIndex = true;
 			% Body-ground collisions
 			Eg = this.model.ground.E;
 			for i = 1 : length(this.bpList1)
@@ -211,6 +218,7 @@ classdef Collider < handle
                     if(saveGroundBodyIndex)
                         this.groundBodyIndex(end+1) = body.index;
                     end
+
                     this.activeCollisions(end+1) = body.index;
                     if(this.model.useContactCaching)
                         this.collisions{body.index}.broken = false;
@@ -235,7 +243,7 @@ classdef Collider < handle
                     nw = cdata(1).nw;
                     xd = body1.x(5:7) - body2.x(5:7);
                     xd = xd ./ norm(xd);
-                    if(abs(nw'*this.gravityDirection) > 0.25)
+                    if(abs(nw'*this.gravityDirection) > 0.25 && ~isinf(body1.Mp))
                         if (xd'*this.gravityDirection > 0)
                             for j =1:length(cdata)
             					cdata(j).nw = -cdata(j).nw;
@@ -251,6 +259,7 @@ classdef Collider < handle
                             this.collisions{index}.body2 = body2;
                             body2.neighbors(end+1) = body1.index;
                         end
+
                     else
                         this.collisions{index}.body1 = body1;
                         this.collisions{index}.body2 = body2;

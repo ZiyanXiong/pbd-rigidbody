@@ -1,33 +1,41 @@
-rng(42);
 %{
 model = createTestModel(4,1e-4,1);
 model.init();
 model.simulate();
 %}
 
-for i = 6
-    model = SIG25Model(i,1/60,150,2,true);
-    model.init();
-    model.drawHz = 10;
-    model.simulate();
-    if(model.solverType == 1)
-        fileName = sprintf("iterVec_rVec_TGS_%d.mat", model.substeps);
-    elseif(model.solverType == 2)
-        fileName = "iterVec_rVec_2PSP.mat";
-    end
+sceneIds = 0;
+for i = sceneIds
+    for j = [150]
+        rng(42);
+        model = SIG25Model(i,1/60,j,1,true);
+        model.tEnd = 5;
+        model.init();
+        model.drawHz = 100;
     
-    iterVec = model.iterVec;
-    rVec = model.rVec;
-    save(strcat(model.resultFolder, fileName), 'iterVec', 'rVec'); 
+        model.simulate();
+        if(model.solverType == 1)
+            fileName = sprintf("iterVec_rVec_TGS_%d.mat", model.substeps);
+        elseif(model.solverType == 2)
+            fileName = "iterVec_rVec_2PSP.mat";
+        end
+        
+        iterVec = model.iterVec;
+        rVec = model.rVec;
+        save(strcat(model.resultFolder, fileName), 'iterVec', 'rVec'); 
+    end
     %SIG25Plot(i, false);
 end
 
 
+
 %{
-for i = 2:12
-    SIG25Plot(i, false);
+sceneIds = [1];
+for i = sceneIds
+    SIG25Plot(i, true);
 end
 %}
+
 
 %{
 for i = 2:12

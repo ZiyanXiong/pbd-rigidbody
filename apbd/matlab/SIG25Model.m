@@ -24,13 +24,13 @@ switch(modelID)
 		mu = 0.5;
 
 		model.ground.size = 20;
-		model.axis = 10*[-1 1 -1 1 0 1];
+		model.axis = 10*w*[-1 1 -1 1 0 1];
 		model.drawHz = 10;
 
 		model.view = [0 0];
         model.solverType = solverType;
 
-		n = 2;
+		n = 3;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -38,7 +38,7 @@ switch(modelID)
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x =  0.6*w * i;
+			x =  0.5*w * i;
 			y = 0;
 			z = (i-0.5 + i *0.0)*w;
             %z = 0.5 * w;
@@ -46,15 +46,15 @@ switch(modelID)
 			E(1:3,4) = R * [x y z]';
 			model.bodies{end}.setInitTransform(E);
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
-            model.useContactCaching = true;
+            %model.useContactCaching = true;
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
             fclose(fid);
         elseif(model.solverType == 2)
@@ -69,7 +69,7 @@ switch(modelID)
 		model.name = 'Stacking: 20 rigid bodies vertically';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 3;
+		model.tEnd = 5;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
@@ -118,10 +118,11 @@ switch(modelID)
 			E(1:3,4) = R * [x y z]' + [-0.5*w*sin(angle) 0 w+0.5*w*sin(angle)]';
 			model.bodies{end}.setInitTransform(E);
             if(i==n)
-                model.bodies{end}.setInitVelocity([0 0 0 100 0 0]');
+                model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
 
+        %{
 		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([3*w w w]),density*0.5);
 		model.bodies{end}.collide = true;
 		model.bodies{end}.mu = mu;
@@ -135,13 +136,14 @@ switch(modelID)
 		E(1:3,4) = R * [x y z]' + [2*w 0 0.2*w]';
 		model.bodies{end}.setInitTransform(E);
         model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        %}
 
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -194,12 +196,12 @@ switch(modelID)
 			E(1:3,4) = R * [x y z]';
 			model.bodies{end}.setInitTransform(E);
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -254,12 +256,12 @@ switch(modelID)
 		        model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -312,12 +314,12 @@ switch(modelID)
 		        model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -372,12 +374,12 @@ switch(modelID)
                 model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -434,7 +436,7 @@ switch(modelID)
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
-            R = se3.aaToMat([0 0 1], 0.0);
+            R = se3.aaToMat([0 0 1], 0);
 			E = eye(4);
 			x =  5*w;
 			y = 0;
@@ -458,12 +460,12 @@ switch(modelID)
 		E(1:3,4) = R * [x y z]';
 		model.bodies{end}.setInitTransform(E);
 
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -515,7 +517,7 @@ switch(modelID)
 		E(1:3,4) = R * [x y z]';
 		model.bodies{end}.setInitTransform(E);
         
-		n = 9;
+		n = 10;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -523,7 +525,7 @@ switch(modelID)
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x =  -5*w;
+			x =  -2.5*w;
 			y = 0;
 			z = (i-0.5 + 2)*w;
             %z = 0.5 * w;
@@ -532,14 +534,14 @@ switch(modelID)
 			model.bodies{end}.setInitTransform(E);
         end
 
-		for i = 1 : n
+		for i = 1 : n + 1
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
 			model.bodies{end}.mu = mu;
     		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
             R = se3.aaToMat([0 0 1], 0.0);
 			E = eye(4);
-			x =  5*w;
+			x =  2.5*w;
 			y = 0;
 			z = (i-0.5 + 2)*w;
             %z = 0.5 * w;
@@ -548,7 +550,7 @@ switch(modelID)
 			model.bodies{end}.setInitTransform(E);
         end
         
-		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([11*w w w]),density);
+		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([6*w w w]),density);
 		model.bodies{end}.collide = true;
 		model.bodies{end}.mu = mu;
 		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
@@ -562,12 +564,12 @@ switch(modelID)
 		E(1:3,4) = R * [x y z]';
 		model.bodies{end}.setInitTransform(E);
 
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -680,12 +682,12 @@ switch(modelID)
 		E(1:3,4) = R * [x y z]';
 		model.bodies{end}.setInitTransform(E);
 
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -723,7 +725,7 @@ switch(modelID)
 
 		model.view = [0 0];
 
-		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([80 80 0.2]), Inf);
+		model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([40 40 0.2]), Inf);
 		model.bodies{end}.collide = true;
 		model.bodies{end}.mu = mu;
 		%R = se3.aaToMat([1 1 1] / norm([1 1 1]), pi/2);
@@ -736,7 +738,7 @@ switch(modelID)
 		E(1:3,4) = R * [x y z]';
 		model.bodies{end}.setInitTransform(E);
 
-		n = 10;
+		n = 15;
 		for i = 1 : n
 			model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
 			model.bodies{end}.collide = true;
@@ -754,12 +756,12 @@ switch(modelID)
                 model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
             end
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -831,12 +833,12 @@ switch(modelID)
 			    model.bodies{end}.setInitTransform(E);
             end
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -906,12 +908,12 @@ switch(modelID)
 			    model.bodies{end}.setInitTransform(E);
             end
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -979,12 +981,12 @@ switch(modelID)
 	        E(1:3,4) = [x y z]';
 	        model.bodies{end}.setInitTransform(E);
         end
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -1001,7 +1003,7 @@ switch(modelID)
 		model.name = 'Stacking: Circular';
         model.modelID = modelID;
 		model.plotH = false;
-		model.tEnd = 0.5;
+		model.tEnd = 1;
 		model.h = h;
 		model.substeps = substeps;
 		model.iters = 1;
@@ -1013,7 +1015,7 @@ switch(modelID)
 		sides = [2*w 3.5*w w];
 		model.grav = [0 0 -980]';
 		model.ground.E = eye(4);
-		mu = 0.3;
+		mu = 0.4;
 
 		model.ground.size = 20;
 		model.axis = 20*[-1 1 -1 1 0 2];
@@ -1046,21 +1048,21 @@ switch(modelID)
         R = se3.aaToMat([0 0 1], 1*2*pi/5 + pi/5 * 24 + pi/2);
 	    E = eye(4);
 	    x = 0;
-	    y = 7.25*w + 6.5*w;
+	    y = 7.25*w + 7.5*w;
 	    z =-0.5*w + w*24;
         E(1:3,1:3) = R;
 	    E(1:3,4) = R * [x y z]';
 	    model.bodies{end}.setInitTransform(E);
-        vw = R * [0 -390 40]';
+        vw = R * [0 -450 20]';
         model.bodies{end}.setInitVelocity([0 0 0 vw']');
         %model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
         
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
@@ -1157,12 +1159,12 @@ switch(modelID)
 		    model.bodies{end}.setInitTransform(E);
         end
 
-        model.resultFolder = sprintf("Results\\Scene\\%d\\",model.modelID);
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
         if ~exist(model.resultFolder, 'dir')
            mkdir(model.resultFolder)
         end
-        if ~exist(strcat(model.resultFolder,"residual_per_iteration\\"), 'dir')
-           mkdir(strcat(model.resultFolder,"residual_per_iteration\\"))
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
         end
         if(model.solverType == 1)
             %model.useContactCaching = true;
@@ -1176,6 +1178,180 @@ switch(modelID)
             fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
             fclose(fid);
         end
+	case 15
+		model.name = 'Stacking: Dropping';
+        model.modelID = modelID;
+		model.plotH = false;
+		model.tEnd = 5;
+		model.h = h;
+		model.substeps = substeps;
+		model.iters = 1;
+        %model.itersSP = 30;
+		density = 1.0;
+		w = 6;
+		model.grav = [0 0 -980]';
+		model.ground.E = eye(4);
+		mu = 0.5;
+
+		model.ground.size = 20;
+		model.axis = w*10*[-1 1 -1 1 0 2];
+		model.drawHz = 10;
+
+		model.view = [0 0];
+        model.solverType = solverType;
+        sides = [2*w 3*w w];
+        %{
+        for i = 1:2
+	        model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([0.5*w 5*w 10*w]),Inf);
+	        model.bodies{end}.collide = true;
+	        model.bodies{end}.mu = mu;
+	        R = se3.aaToMat([0 0 1], pi * i);
+	        E = eye(4);
+	        x = 3*w;
+	        y = 0;
+	        z = 5.1*w;
+            E(1:3,1:3) = R;
+	        E(1:3,4) = R*[x y z]';
+	        model.bodies{end}.setInitTransform(E);
+        end
+        
+        for i = 1:2
+	        model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([0.5*w 5*w 10*w]),Inf);
+	        model.bodies{end}.collide = true;
+	        model.bodies{end}.mu = mu;
+	        R = se3.aaToMat([0 0 1], pi * i + pi/2);
+	        E = eye(4);
+	        x = 3*w;
+	        y = 0;
+	        z = 5.1*w;
+            E(1:3,1:3) = R;
+	        E(1:3,4) = R*[x y z]';
+	        model.bodies{end}.setInitTransform(E);
+        end
+        %}
+
+        for l = 1:7
+            Rz = se3.aaToMat([0 0 1], pi/360*randi([-180,180]));
+            for i = 1:2
+                if(i==1)
+                    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w 3*w 2*w]),density);
+                    model.bodies{end}.collide = true;
+                    model.bodies{end}.mu = mu;
+                    R = se3.aaToMat([0 1 0], pi/180*randi([0,15]));
+                    E = eye(4);
+                    x = 1.15*w;
+                    y = 0;
+                    z = w*(l-0.35)*2.65;
+                    E(1:3,1:3) = R*Rz;
+                    E(1:3,4) = Rz*[x y z]';
+                    model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+                    model.bodies{end}.setInitTransform(E);
+                else
+                    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w 3*w w]),density);
+                    model.bodies{end}.collide = true;
+                    model.bodies{end}.mu = mu;
+                    R = se3.aaToMat([0 1 0], pi/180*randi([0,15]));
+                    E = eye(4);
+                    x = -1.15*w;
+                    y = 0;
+                    z = w*(l-0.65)*2.65;
+                    E(1:3,1:3) = R*Rz;
+                    E(1:3,4) = Rz*[x y z]' ;
+                    model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+                    model.bodies{end}.setInitTransform(E);
+
+                    model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([2*w 3*w w]),density);
+                    model.bodies{end}.collide = true;
+                    model.bodies{end}.mu = mu;
+                    R = se3.aaToMat([0 1 0], pi/180*randi([0,15]));
+                    E = eye(4);
+                    x = -1.25*w;
+                    y = 0;
+                    z = w*(l-0.15)*2.65;
+                    E(1:3,1:3) = R*Rz;
+                    E(1:3,4) = Rz*[x y z]' ;
+                    model.bodies{end}.setInitVelocity([0 0 0 0 0 0]');
+                    model.bodies{end}.setInitTransform(E);
+                end
+            end
+        end
+        
+        %{
+        for i = 1:2
+	        model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid([30*w 4*w 0.5*w]),Inf);
+	        model.bodies{end}.collide = true;
+	        model.bodies{end}.mu = mu;
+            if(i==1)
+	            R = se3.aaToMat([0 1 0], -atan(mu));
+	            E = eye(4);
+	            x = 15*w;
+	            y = 0;
+	            z = 0;
+                E(1:3,1:3) = R;
+	            E(1:3,4) = R*[x y z]' + [3*w 0 5.75*w]';
+            else
+	            R = se3.aaToMat([0 1 0], atan(mu));
+	            E = eye(4);
+	            x = -15*w;
+	            y = 0;
+	            z = 0;
+                E(1:3,1:3) = R;
+	            E(1:3,4) = R*[x y z]' + [-3*w 0 5.75*w]';
+            end
+	        model.bodies{end}.setInitTransform(E);
+        end
+        %}
+        %{
+        for l = 1:3
+            for i = 1:2		
+	            sides = randi([6,9],3,1);
+                model.bodies{end+1} = apbd.BodyRigid(apbd.ShapeCuboid(sides),density);
+                model.bodies{end}.collide = true;
+                model.bodies{end}.mu = mu;
+                if(i==1)
+                    R = se3.aaToMat([0 1 0], -atan(mu));
+                    Rz = se3.aaToMat([0 0 1], pi/36*randi([0,36]));
+                    E = eye(4);
+                    x = w*(l-1)*2.25;
+                    y = 0;
+                    z = 0.25*w+0.5*sides(3);
+                    E(1:3,1:3) = R*Rz;
+                    E(1:3,4) = R*[x y z]' + [3*w 0 5.75*w]';
+                    model.bodies{end}.setInitVelocity([0 0 0 -60 0 0]');
+                else
+                    R = se3.aaToMat([0 1 0], atan(mu));
+                    Rz = se3.aaToMat([0 0 1], pi/36*randi([0,36]));
+                    E = eye(4);
+                    x = -w*(l-1)*2.25;
+                    y = 0;
+                    z = 0.25*w+0.5*sides(3);
+                    E(1:3,1:3) = R*Rz;
+                    E(1:3,4) = R*[x y z]' + [-3*w 0 5.75*w]';
+                    model.bodies{end}.setInitVelocity([0 0 0 60 0 0]');
+                end
+                model.bodies{end}.setInitTransform(E);
+            end
+        end
+        %}
+
+        model.resultFolder = sprintf("Results/Scene/%d/",model.modelID);
+        if ~exist(model.resultFolder, 'dir')
+           mkdir(model.resultFolder)
+        end
+        if ~exist(strcat(model.resultFolder,"residual_per_iteration/"), 'dir')
+           mkdir(strcat(model.resultFolder,"residual_per_iteration/"))
+        end
+        if(model.solverType == 1)
+            fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
+            fclose(fid);
+        elseif(model.solverType == 2)
+            fid = fopen(fullfile(model.resultFolder, 'Body_States_2PSP.txt'), 'w');
+            fclose(fid);
+        else
+            model.useContactCaching = true;
+            fid = fopen(fullfile(model.resultFolder, sprintf('Body_States_TGS_%d.txt',model.substeps)), 'w');
+            fclose(fid);
+        end    
 end
 
 end

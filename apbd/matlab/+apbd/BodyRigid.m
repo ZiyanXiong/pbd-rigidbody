@@ -310,8 +310,10 @@ classdef BodyRigid < apbd.Body
 
 		%%
 		function [F,V] = draw(this)
+            global CM; %#ok<GVMIS>
 			E = this.computeTransform();
-			[F,V] = this.shape.draw(E,this.color,this.axisSize);
+            layerColor = CM(mod(this.layer,size(CM,1))+1,:);
+			[F,V] = this.shape.draw(E,layerColor,this.axisSize);
 		end
 	end
 

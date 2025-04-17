@@ -1,6 +1,6 @@
 function SIG25Plot(modelID, animation)
-    resultFolder = sprintf("Results\\Scene\\%d\\", modelID);
-    plotFolder = strcat(resultFolder, "plots\\");
+    resultFolder = sprintf("Results/Scene/%d/", modelID);
+    plotFolder = strcat(resultFolder, "plots/");
     if ~exist(plotFolder, 'dir')
        mkdir(plotFolder)
     end
@@ -17,7 +17,7 @@ function SIG25Plot(modelID, animation)
     TPSP_iterVec = iterVec';
     
     for i = 1:steps
-        load(strcat(resultFolder,sprintf("\\residual_per_iteration\\2PSP_%d.mat",i-1)), "rs_gs", "rs_2psp");
+        load(strcat(resultFolder,sprintf("/residual_per_iteration/2PSP_%d.mat",i-1)), "rs_gs", "rs_2psp");
         f = figure('visible','off');
         semilogy(1:size(rs_gs,1), rs_gs, '-', 'DisplayName','Gauss-Seidel','linewidth',1.5);
         hold on;
@@ -61,7 +61,7 @@ function SIG25Plot(modelID, animation)
     %}
 
     %{
-    load(strcat(resultFolder,sprintf("\\residual_per_iteration\\2PSP_1.mat")), "rs_gs", "rs_2psp");
+    load(strcat(resultFolder,sprintf("/residual_per_iteration/2PSP_1.mat")), "rs_gs", "rs_2psp");
     f = figure('visible','off');
     semilogy(1:size(rs_gs,1), rs_gs, '-', 'DisplayName','Gauss-Seidel','linewidth',1.5);
     hold on;
@@ -115,15 +115,16 @@ function SIG25Plot(modelID, animation)
             xline(i, '--k','HandleVisibility', 'off', 'LineWidth', 1.5);
             set(gca,'FontSize',22);
             title('');
-            ylabel('Iters');
+            ylabel('Residuals');
             xlabel('Time Step');
-            ylim([0,550]);
+            xlim([0 steps]);
+            ylim([1e-6,1e4]);
             ax = gca; % Get the current axes
-            ax.XTick = 0:10:steps; % Major ticks
-            ax.YTick = 0:100:600; % Major ticks
-            legend('GS-50','GS-150','GS-500','2PSP', 'Location', 'bestoutside');
+            ax.XTick = 0:50:steps; % Major ticks
+            ax.YTick = logspace(-6,4,6); % Major ticks
+            %legend('GS-50','GS-150','GS-500','2PSP', 'Location', 'bestoutside');
             grid on;
-            exportgraphics(f, strcat(plotFolder, sprintf("residual_per_timestep_%d.tif", i)), 'Resolution',300);
+            exportgraphics(f, strcat(plotFolder, sprintf("residual_per_timestep_%d.tif", i)), 'Resolution',200);
             close(f);
     
             f = figure('visible','off');
@@ -138,14 +139,16 @@ function SIG25Plot(modelID, animation)
             legend off;
             set(gca,'FontSize',22);
             title('');
-            ylabel('Residual');
+            ylabel('Iters');
             xlabel('Time Step');
-            ylim([1e-5,1e4]);
+            xlim([0 steps]);
+            ylim([0,550]);
             ax = gca; % Get the current axes
-            ax.XTick = 0:10:steps; % Major ticks
-            ax.YTick = logspace(-6,4,6); % Major ticks
+            ax.XTick = 0:50:steps; % Major ticks
+            ax.YTick = 0:100:600; % Major ticks            
+            legend('GS-50','GS-150','GS-500','2PSP', 'Location', 'bestoutside');
             grid on;
-            exportgraphics(f, strcat(plotFolder, sprintf("iteration_per_timestep_%d.tif", i)), 'Resolution',300);
+            exportgraphics(f, strcat(plotFolder, sprintf("iteration_per_timestep_%d.tif", i)), 'Resolution',200);
             close(f);
         end
     end

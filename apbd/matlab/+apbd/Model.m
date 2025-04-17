@@ -120,7 +120,7 @@ classdef Model < handle
 		function simulate(this)
 			while this.k < this.steps
 				this.ks = 0;
-                if this.k == 30
+                if this.k == 39
                     fprintf("Pause.");
                 end
                 if(~this.useGlobalMatrix)
@@ -168,8 +168,8 @@ classdef Model < handle
 
             if(this.modelID == 9)
                 groundVelocity = zeros(6,1);
-                groundVelocity(4) = 5 * sin(this.k / 15 *pi);
-                groundVelocity(6) = 65 * sin(this.k / 12 *pi);
+                groundVelocity(4) = 2.5 * sin(this.k / 40 *pi);
+                groundVelocity(6) = 2 * sin(this.k / 50 *pi);
                 this.bodies{1}.setInitVelocity(groundVelocity);
             end
 
@@ -467,8 +467,8 @@ classdef Model < handle
 
             if(this.modelID == 9)
                 groundVelocity = zeros(6,1);
-                groundVelocity(4) = 5 * sin(this.k / 15 *pi);
-                groundVelocity(6) = 65* sin(this.k / 12 *pi);
+                groundVelocity(4) = 12 * sin(this.k / 36 *pi);
+                groundVelocity(6) = 18* sin(this.k / 54 *pi);
                 this.bodies{1}.setInitVelocity(groundVelocity);
             end
             
@@ -780,7 +780,7 @@ classdef Model < handle
                 %}
 
 				% Lighting
-				l = light('Style','local','Position',[0 -50 100]);
+				l = light('Style','local','Position',[0 -50 200]);
 
 				if this.ground.E(4,4) ~= 0 && this.ground.size > 0
 					% Draw ground

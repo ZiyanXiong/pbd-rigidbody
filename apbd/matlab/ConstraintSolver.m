@@ -112,6 +112,85 @@ classdef ConstraintSolver < handle
             %save('GS_lambda.mat',"lambda");
         end
 
+        function [lambdax, x] = Gauss_Sidiel_SP(this, A, Asp, b, blocks, mu)
+            n = size(b,1);
+            layers = length(blocks);
+            %lambdax = zeros(n,1);
+            x = zeros(n,1);
+            Asp= Asp+(triu(Asp' - Asp));
+            AspD = A - Asp;
+
+            for iter = 1:1
+                bsp = b - AspD*x;
+                for l = 1:layers
+                    for layer_iter = 1 : 75
+                        for np = 1:length(blocks{l})
+                            p = blocks{l}{np};
+                            for i = p(1:3:end)
+                                ri = bsp(i) - Asp(i,:) * x;
+                                x(i) = x(i) + ri ./ Asp(i,i);
+                                if(x(i) < 0)
+                                    x(i) = 0;
+                                end
+                            end
+                        end
+    
+                        for np = 1:length(blocks{l})
+                            p = blocks{l}{np};
+                            for i = p(2:3:end)
+                                ri = bsp(i:i+1) - Asp(i:i+1,:) * x;
+                                x(i) = x(i) + ri(1) ./ Asp(i,i); 
+                                x(i+1) = x(i+1) + ri(2) ./ Asp(i+1,i+1);
+        
+                                if (norm([x(i) x(i+1)]) > mu * x(i-1))
+                                    scale =  mu * (x(i-1)) / norm([x(i) x(i+1)]);
+                                    x(i) = scale * x(i);
+                                    x(i+1) = scale * x(i+1);
+                                end
+                            end
+                        end
+                    end
+                end
+                
+                for l = layers:-1:1
+                    for layer_iter = 1 : 75
+                        for np = 1:length(blocks{l})
+                            p = blocks{l}{np};
+                            for i = p(1:3:end)
+                                ri = bsp(i) - Asp(i,:) * x;
+                                x(i) = x(i) + ri ./ Asp(i,i);
+                                if(x(i) < 0)
+                                    x(i) = 0;
+                                end
+                            end
+                        end
+    
+                        for np = 1:length(blocks{l})
+                            p = blocks{l}{np};
+                            for i = p(2:3:end)
+                                ri = bsp(i:i+1) - Asp(i:i+1,:) * x;
+                                x(i) = x(i) + ri(1) ./ Asp(i,i); 
+                                x(i+1) = x(i+1) + ri(2) ./ Asp(i+1,i+1);
+        
+                                if (norm([x(i) x(i+1)]) > mu * x(i-1))
+                                    scale =  mu * (x(i-1)) / norm([x(i) x(i+1)]);
+                                    x(i) = scale * x(i);
+                                    x(i+1) = scale * x(i+1);
+                                end
+                            end
+                        end
+                    end
+                end
+
+                rx = b - A*x;
+                this.rs(iter) = norm(rx(rx>0));
+            end
+
+            this.itercount = this.itermax;
+            lambdax = x;
+            %save('GS_lambda.mat',"lambda");
+        end
+
         function [lambdax] = Temporal_Gauss_Sidiel_Joints(this, A, b, substeps)
             n = size(b,1);
             lambdax = zeros(n,1);
@@ -159,21 +238,25 @@ classdef ConstraintSolver < handle
                     rsl0 = r(blockinds)-Asp(blockinds,:)*dx;
                     for np = 1:length(blocks{l})
                         p = blocks{l}{np};
-                        %{
+                        
                         rn = r(p(1:3:end)) - Asp(p(1:3:end),:) * dx;
-                        if(all(rn<=0 & dx(p(1:3:end))==0))
-                            continue;
-                        end
-
                         dxn = rn ./ diag(Asp(p(1:3:end),p(1:3:end)));
-                        %{
+                        dxn((rn<=0 & dx(p(1:3:end))==0)) = 0;
+                        dxn = dxn*0.5;
                         %Line search for Jacobi
+                        lsIter = 1;
                         while(norm(rn - Asp(p(1:3:end),p(1:3:end))*dxn) > norm(rn))
                             dxn = dxn*0.5;
+                            lsIter = lsIter + 1;
+                            if(lsIter > 10)
+                                dxn = dxn*0;
+                                break;
+                            end
                         end
-                        %}
-                        dx(p(1:3:end)) = dx(p(1:3:end)) + dxn*0.5;
-                        %}
+
+                        
+                        dx(p(1:3:end)) = dx(p(1:3:end)) + dxn;
+                        
                         for i = p(1:3:end)
                             ri = r(i) - Asp(i,:) * dx;
                             dx(i) = dx(i) + ri / Asp(i,i);
@@ -220,7 +303,7 @@ classdef ConstraintSolver < handle
                 rsln0 = r(blockinds(1:3:end));
                 %deltax = -Asp(blockinds,:)*dx;
                 %if(~all(rsln(deltax(1:3:end)<-1) > -1))
-                if(any(rsln<-1) && any(rsln0(rsln<-1e-1) > 1))
+                if(any(rsln<-3) && any(rsln0(rsln<-3) > 1))
                     upwardSuccess = false;
                     break;
                 end
@@ -228,7 +311,7 @@ classdef ConstraintSolver < handle
             rsp = r - tril(Asp - AspT) * dx;
             %rsp = b - (A - AspT) * x;
             %x = pinv(AspT)*rsp;
-            dx = zeros(n,1);
+            %dx = zeros(n,1);
             if(upwardSuccess)
                 for l = layers:-1:1
                     blockinds = [blocks{l}{:}];
@@ -239,16 +322,19 @@ classdef ConstraintSolver < handle
                             p = blocks{l}{np};
                             
                             rn = rsp(p(1:3:end)) - AspT(p(1:3:end),:) * dx;
-                            if(all(rn<=0 & dx(p(1:3:end))==0))
-                                continue;
-                            end
                             dxn = rn ./ diag(AspT(p(1:3:end),p(1:3:end)));
-                            
+                            dxn((rn<=0 & dx(p(1:3:end))==0)) = 0;
                             dxn = dxn*0.5;
                             %Line search for Jacobi
-                            while(norm(rn - AspT(p(1:3:end),p(1:3:end))*dxn) > norm(rn))
+                            lsIter = 1;
+                            while(norm(rn - Asp(p(1:3:end),p(1:3:end))*dxn) > norm(rn))
                                 dxn = dxn*0.5;
-                            end
+                                lsIter = lsIter + 1;
+                                if(lsIter > 10)
+                                    dxn = dxn*0;
+                                    break;
+                                end
+                            end                   
                             
                             dx(p(1:3:end)) = dx(p(1:3:end)) + dxn;
                             
@@ -299,7 +385,7 @@ classdef ConstraintSolver < handle
                     rsln0 = rsp(blockinds(1:3:end));
                     %deltax = -AspT(blockinds,:)*dx;
                     %if(~all(rsln(deltax(1:3:end)<-1) > -1))
-                    if(any(rsln<-1) && any(rsln0(rsln<-1e-1) > 1))
+                    if(any(rsln<-3) && any(rsln0(rsln<-3) > 1))
                         downwardSuccess = false;
                         break;
                     end
