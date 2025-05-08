@@ -239,6 +239,7 @@ classdef BodyRigid < apbd.Body
                 I = diag(this.Mr);
             else
                 I = R * diag(this.Mr) * R';
+                %I = diag(this.Mr);
             end
 
 			Iw = I*w; % angular momentum in body space

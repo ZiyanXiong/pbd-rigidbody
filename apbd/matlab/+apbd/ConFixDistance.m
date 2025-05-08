@@ -1,4 +1,4 @@
-classdef ConFix < apbd.ConColl
+classdef ConFixDistance < apbd.ConColl
 	%ConCollRigidRigid Collision between two rigid bodies
 
 	properties
@@ -6,7 +6,7 @@ classdef ConFix < apbd.ConColl
 		body2
 		x1 % Position wrt body 1 (3x1)
 		x2 % Position wrt body 2 (3x1)
-        nl % Normal wrt body1 (3x1)
+        dis % Distance between 2 points
         dt % d/h
 
         contactFrame
@@ -28,13 +28,14 @@ classdef ConFix < apbd.ConColl
 
 	methods
 		%%
-        function this = ConFix(body1,body2, xl1, nl)
+        function this = ConFixDistance(body1,body2, xw1, xw2, nw, dis)
 			this = this@apbd.ConColl();
 			this.body1 = body1;
 			this.body2 = body2;
-			this.nl = nl;
-			this.x1 = xl1;
-			this.x2 = body2.invTransformPoint(body1.transformPoint(this.x1));
+			this.nw = -nw;
+			this.x1 = body1.invTransformPoint(xw1);
+			this.x2 = body2.invTransformPoint(xw2);
+            this.dis = dis;
 
             this.contactFrame = zeros(3,3);
 
@@ -52,13 +53,13 @@ classdef ConFix < apbd.ConColl
 		end
 
 		%%
-		function init(this,h,hs,~,~) 
+		function init(this,h,hs) 
             this.d = this.body1.transformPoint(this.x1) - this.body2.transformPoint(this.x2);
+            this.d = (norm(this.d)-this.dis)*(this.d)/norm(this.d);
             this.dt = this.d / h;
             this.biasCoefficient = -1 / hs;
 
             this.lambda = zeros(3,1);
-            this.nw = this.body1.transformVector(this.nl);
             [tanx,tany] = apbd.ConColl.generateTangents(this.nw);
             this.contactFrame = [this.nw, tanx, tany];
 

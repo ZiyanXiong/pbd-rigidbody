@@ -1,5 +1,5 @@
-for i = 0
-    model = JointModel(i,1/200,150,2);
+for i = 3
+    model = JointModel(i,1/100,10,1);
     model.init();
     model.drawHz = 100;
     model.simulate();

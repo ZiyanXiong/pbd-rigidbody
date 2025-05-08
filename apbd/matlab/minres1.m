@@ -1,7 +1,7 @@
 %% Minimum Residual (GNU Octave)
 % https://savannah.gnu.org/patch/?9282
 % CLEANED
-function [x,flag,relres,iter,resvec]  = minres1(A,b,tol,maxit,M,~,x0,~,~,~,mindices,mu)
+function [x,flag,relres,iter,resvec]  = minres1(A,b,tol,maxit,M,~,x0,~,u,~,mindices,mu)
 flag = 1;
 
 n = length(b);
@@ -14,6 +14,12 @@ s_p = 0;
 % Initiation
 rM = b - A * x0;
 resvec = norm(rM);
+if(resvec<1e-9)
+    x = x0;
+    iter =0;
+    relres = resvec;
+    return;
+end
 MrM = M \ rM;
 
 beta = sqrt(rM' * MrM);
@@ -79,13 +85,21 @@ for iter = 1 : maxit
     
     % Check convergence
     feasible = true;
-    for i = 1:length(x)
-        if(mod(mindices(i),3)==1 && x(i) < -1e-6)
-            feasible = false;
+    if(isempty(u))
+        for i = 1:length(x)
+            if(mod(mindices(i),3)==1 && x(i) < -1e-6)
+                %feasible = false;
+            end
+    
+            if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > mu*x(i-1) + 1e-6)
+                %feasible = false;
+            end
         end
-
-        if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > mu*x(i-1) + 1e-6)
-            feasible = false;
+    else
+        for i = 1 : length(x)
+            if(mod(mindices(i),3)==2 && norm([x(i) x(i+1)]) > u(i))
+                %feasible = false;
+            end
         end
     end
 

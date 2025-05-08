@@ -274,12 +274,39 @@ classdef se3
 		
 		%%
 		function dq = deltaThetaToDq(wdt)
-            % https://fgiesen.wordpress.com/2012/08/24/quaternion-differentiation/
             theta = norm(wdt);
             if(theta > 0)
                 wdt = wdt / theta;
             end
             dq=[wdt*sin(theta/2);cos(theta/2)];
+        end
+
+		%%
+		function deltaTheta = dqToDeltaTheta(dq)
+            dq = dq/norm(dq);
+            angle = 2 * acos(dq(4));
+            sinHalfAngle = sqrt(1 - dq(4)^2);
+            if(sinHalfAngle < 1e-12)
+                deltaTheta = [0 0 0]';
+            else
+                deltaTheta = angle * dq(1:3) / sinHalfAngle;
+            end
+        end
+
+
+		%%
+		function dq = computeDq(v1,v2)
+            % Compute the quaternion to rotate v1 to v2
+            axis = se3.cross(v1,v2);
+            cosTheta = v1'*v2;
+            sinTheta = norm(axis);
+            theta = atan2(sinTheta,cosTheta);
+            if(sinTheta > 1e-12)
+                axis = axis / sinTheta;
+            else
+                axis = [0 0 0]';
+            end
+            dq = [axis*sin(theta/2);cos(theta/2)];
         end
 
 		%%

@@ -14,9 +14,9 @@ classdef ConstraintSolver < handle
             this.itercount = 0;
         end
 
-        function x = Gauss_Sidiel(this, A, b, mu, x0)
+        function [lambdax, x] = Gauss_Sidiel(this, A, b, mu, contactConstraintEndInd, x0)
             n = size(b,1);
-            if nargin < 5
+            if nargin < 6
                 x = zeros(n,1);
             else
                 x = x0;
@@ -24,7 +24,7 @@ classdef ConstraintSolver < handle
             this.rs = zeros(this.itermax,1);
             for iter = 1:this.itermax
                 
-                for i = 1 : 3 : n
+                for i = 1 : 3 : contactConstraintEndInd
                     ri = b(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
                     if(x(i) < 0)
@@ -32,7 +32,7 @@ classdef ConstraintSolver < handle
                     end
                 end
                 
-                for i = 1 : n
+                for i = 1 : contactConstraintEndInd
                     if(mod(i,3) == 1)
                         continue;
                     end
@@ -53,15 +53,20 @@ classdef ConstraintSolver < handle
                     end
                    
                 end
+                for i = contactConstraintEndInd + 1 : n
+                    ri = b(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                end
                 r = b - A*x;
-                this.rs(iter) = norm(r(r>0));
+                this.rs(iter) = norm(r);
             end
             this.itercount = iter;
+            lambdax = x;
             %lambda = x;
             %save('GS_lambda.mat',"lambda");
         end
 
-        function [lambdax, x] = Temporal_Gauss_Sidiel(this, A, b, d, contactConstraintEndInd, mu, substeps, x0)
+        function [lambdax, x] = Temporal_Gauss_Sidiel(this, A, b, d, mu, contactConstraintEndInd,substeps, x0)
             n = size(b,1);
             lambdax = zeros(n,1);
             if(nargin <8)
@@ -102,7 +107,7 @@ classdef ConstraintSolver < handle
                 bsub = bsub - (cpv0+A*x);
                 lambdax = lambdax + x / substeps;
                 rx = b - A*lambdax;
-                this.rs(iter) = norm(rx(rx>0));
+                this.rs(iter) = norm(rx);
             end
             this.itercount = substeps;
             %lambda = x;
@@ -160,23 +165,25 @@ classdef ConstraintSolver < handle
             this.itercount = iter-1;
         end
 
-        function [x, xv] = Staggered(this, A, b, mu)
+        function [x, xv] = Staggered(this, A, b, mu, contactConstraintEndInd)
             options.ProjectionMethod = 'none';
-            options.MaxIterations = 100;
-            options.Tolerance = 1e-9;
+            options.MaxIterations = 50;
+            options.Tolerance = 1e-8;
             n = length(b);
             l = zeros(n,1);
             u = inf(n,1);
             x = zeros(n,1);
-            for i = 1:3:n
+            for i = 1:3:contactConstraintEndInd
                 l(i+1:i+2) = -x(i)*mu;
                 u(i+1:i+2) = x(i)*mu;
             end
+            
+            %{
             nind = false(n,1);
-            nind(1:3:n) = true;
+            nind(1:3:contactConstraintEndInd) = true;
             tind = ~nind;
-            iter = 1;
-            this.rs = zeros(this.itermax,1);
+            %}
+
             %{
             while(iter < this.itermax)
                 bn = b(nind) - A(nind,tind)*x(tind);
@@ -197,16 +204,23 @@ classdef ConstraintSolver < handle
             end
             %}
             
-            [x, f, exitflag, output, lambda]= gpqp_staggered(A,-b,l,u,x,options,mu);
+            %[x, f, exitflag, output, lambda]= gpqp_staggered(A,-b,l,u,x,options,mu);
+            [x, f, exitflag, output, lambda]= gpqp_staggered_cone(A,-b,l,u,x,options,mu,contactConstraintEndInd);
+            %[x, f, exitflag, output, lambda]= cone_gpqp(A,-b,l,u,x,options,mu,contactConstraintEndInd);
             this.rs = zeros(this.itermax,1);
             iter = 1;
             for i = 1:output.iterations
-                this.rs(iter:iter+output.cgiterations(i)-1) = output.rs(i);
+                if(i == 1)
+                    this.rs(iter:iter+output.cgiterations(i)-1) = norm(b);
+                else
+                    this.rs(iter:iter+output.cgiterations(i)-1) = output.rs(i-1);
+                end
                 iter = iter+output.cgiterations(i);
                 if(iter > this.itermax)
                     break;
                 end
             end
+            this.rs(iter:end) = output.rs(i);
             
             xv = x;
             this.itercount = iter-1;

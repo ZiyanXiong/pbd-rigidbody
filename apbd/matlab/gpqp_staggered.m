@@ -100,7 +100,7 @@ for iter = 1:iterNum
         end
     end
 
-    dyanmicFricitonIndex = (~neqIndex) & tangentIndex;
+    dyanmicFricitonIndex = tangentIndex;
     if(~all(~dyanmicFricitonIndex))
         [xdf,neqIndexDynamicFriciotn] = computeCauchyPoint(G(dyanmicFricitonIndex,dyanmicFricitonIndex), ...
             c(dyanmicFricitonIndex) + G(dyanmicFricitonIndex, ~dyanmicFricitonIndex) * x(~dyanmicFricitonIndex), ...

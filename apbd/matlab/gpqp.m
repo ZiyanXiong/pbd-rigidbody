@@ -50,7 +50,8 @@ fPrev = 0.5 * x' * G * x + x' * c;
 gPrev = G * x + c;
 CGiterVec = [];
 neqIndexPrev = zeros(n);
-for i = 1:iterNum
+rs = zeros(iterNum,1);
+for iter = 1:iterNum
     [xc,neqIndex] = computeCauchyPoint(G,c,l,u,x);
     lNeq = l(neqIndex);
     uNeq = u(neqIndex);
@@ -82,6 +83,7 @@ for i = 1:iterNum
     f = 0.5 * x' * G * x + x' * c;
     g = G * x + c;
 
+    rs(iter) = norm(g);
 	if norm(g) < eps && sum(neqIndex) == n
 		break;
 	end
@@ -109,9 +111,10 @@ else
     exitflag = 0;
 end
 
-output.iterations = i;
+output.iterations = iter;
 output.projectionMethod = projectionOpts;
 output.cgiterations = CGiterVec;
+output.rs = rs;
 end
 
 %% Preconditioned CG for Reduced Systems (Algorithm 16.1 )
