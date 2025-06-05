@@ -21,7 +21,6 @@ namespace _2psp {
         //Body* _parent;
 
         std::vector<Body*> _contact_bodies_next;      // Contating bodies in next layer
-        std::vector<Body*> _contact_bodies_current;    // Contating bodies in current layer
 
         // index
        int _index;                          // index for body in body list
@@ -44,7 +43,9 @@ namespace _2psp {
 
         // phi
         se3 _phi;                           // spatial velocity
-        se3 _phi_dt;                       // temporary variable for gauss-seidel solver
+        se3 _phi_0;                         // spatial velocity after uncontarined step
+        se3 _phi_dt;                       // temporary variable for temporal gauss-seidel solver
+        se3 _delta_phi;                    // temporary variable for temporal gauss-seidel solver and velocity solve
 
         dtype _mu;
 
@@ -73,7 +74,7 @@ namespace _2psp {
         Vector3 transform_point(const Vector3& p);
 
         // unconstrained step
-        void step_unconstrained(se3& fm);
+        void step_unconstrained(MapVectorX& f_t_i);
         void update_substep_states(dtype dt);
 
         void virtual compute_mass_inertial() = 0;

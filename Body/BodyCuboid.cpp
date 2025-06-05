@@ -4,14 +4,21 @@
 namespace _2psp {
 
 
-    BodyCuboid::BodyCuboid(Model* sim, Joint* joint, Vector3 length, dtype density) :
+    BodyCuboid::BodyCuboid(Model* sim, Joint* joint, Vector3 length, dtype density, bool is_infinite_mass) :
         BodyPrimitiveShape(sim, joint, density)
     {
         _length = length;
+        _is_infinite_mass = is_infinite_mass;
     }
 
     void BodyCuboid::compute_mass_inertial()
 	{
+        if (_is_infinite_mass) {
+			_mass_inv = 0.0;
+			_Inertia_inv.setZero();
+			return;
+		}
+
 		// Compute the mass
 		dtype mass = _density * _length.x() * _length.y() * _length.z();
         _mass_inv = 1.0 / mass;

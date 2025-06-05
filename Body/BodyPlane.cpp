@@ -7,8 +7,17 @@ namespace _2psp {
     BodyPlane::BodyPlane(Model* sim, const Matrix4 E_g) :
         BodyPrimitiveShape(sim, nullptr, 0)
     {
-        _E_0i = E_g;
-        _E_i0 = math::Einv(_E_0i);
+        _E_i0 = E_g;
+        _E_0i = math::Einv(_E_i0);
+    }
+
+    void BodyPlane::init() 
+    {
+        compute_mass_inertial();
+        _phi.setZero();
+        _phi_0.setZero();
+        _phi_dt.setZero();
+        _delta_phi.setZero();
     }
 
     void BodyPlane::compute_mass_inertial()

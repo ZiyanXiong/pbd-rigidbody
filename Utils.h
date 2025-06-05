@@ -12,7 +12,7 @@ namespace _2psp {
 
     namespace math {
         const dtype eps = (dtype)1e-9;
-        const dtype eps_big = (dtype)1e-5;
+        const dtype eps_big = (dtype)1e-6;
 
         inline dtype deg2rad(dtype deg) {
             return deg / (dtype)180.0 * constants::pi;

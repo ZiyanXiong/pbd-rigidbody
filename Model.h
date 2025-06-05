@@ -39,16 +39,19 @@ namespace _2psp {
             Vector3 _gravity;
             dtype _h;
             int _substep; // substep for temporal gauss seidel
+            int _substep_vel; // substep for temporal gauss seidel
+            int _2psp_iter_max;
+            dtype _2psp_tol;
             string _solver; // [2PSP, TGS]
             string _unit; // ["cm-g", "m-kg"]
 
-            Options(Vector3 gravity = -980. * Vector3::UnitZ(), dtype h = 0.02, int substep = 100, string solver = "TGS", string unit = "cm-g") :
-                _gravity(gravity), _h(h), _substep(substep), _solver(solver), _unit(unit) {}
+            Options(Vector3 gravity = -980. * Vector3::UnitZ(), dtype h = 1.0 / 60, int substep = 50, int substep_vel = 10, int sp_iter_max = 75, dtype sp_tol = math::eps_big, string solver = "TGS", string unit = "cm-g") :
+                _gravity(gravity), _h(h), _substep(substep), _substep_vel(substep_vel), _2psp_iter_max(sp_iter_max), _2psp_tol(sp_tol), _solver(solver), _unit(unit) {}
         };
 
         Options* _options;
 
-
+        /*
         class ViewerOptions {
         public:
             int _fps;
@@ -98,9 +101,10 @@ namespace _2psp {
         };
 
         TimeReport _time_report;
-
+        */
         // -------------------- forward dynamics related -------------------
         std::string _name;
+        int _step_count; // number of steps in the simulation
 
         // robot related
         vector<Robot*> _robots;
@@ -116,6 +120,7 @@ namespace _2psp {
         // states
         VectorX _q_init, _dq_init;
         VectorX _q, _dq;
+        VectorX _f_tm;
 
         // verbose output
         bool _verbose;
@@ -137,6 +142,7 @@ namespace _2psp {
 
         // init simulation
         void init();
+        void reset();
 
         // init states
         void set_state_init(const VectorX q_init, const VectorX dq_init);
@@ -171,7 +177,9 @@ namespace _2psp {
         void collision_detection();
         void step_unconstrained();
         void temporal_gauss_seidel();
+        void two_pass_shock_propagation();
         void update_robot();
+        void solve_velocity();
 
         // export simulation replay to a folder
         void export_replay(std::string folder);

@@ -24,6 +24,7 @@ namespace _2psp {
 
         int _ndof_m, _ndof_u;
         int _ind_m, _ind_u;
+        int _n_c; // number of constraints
 
 
         Robot(): _ndof_m(-1), _ndof_u(-1), _ind_m(-1), _ind_u(-1) {
@@ -46,12 +47,15 @@ namespace _2psp {
         // init robot
         void init(int ind_m);
         void init_collisions();
+        void reset();
         //void construct_dfs_order(Joint* now);
 
         void construct_collision_order();
         void solve_collisions(dtype h);
+        bool solve_collisions_2psp(dtype h, int& solve_count, int sp_iter_max, dtype tol);
+        void solve_velocity(dtype h);
 
-        void step_unconstrained();
+        void step_unconstrained(VectorX& f_t);
 
         // set state variables
         // void set_q(const VectorX q);

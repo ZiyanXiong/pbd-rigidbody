@@ -9,6 +9,7 @@ namespace _2psp {
 
         BodyPlane(Model* sim, const Matrix4 E_g);
 
+        void init();
         void compute_mass_inertial();
     };
 
