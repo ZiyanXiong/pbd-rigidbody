@@ -1,7 +1,7 @@
-classdef Joint < handle
+classdef Muscle < handle
     properties
-        body1   
-        body2   % If this is a jont connecting to ground, body2 will be null
+        bodies
+        viaPointNum
         constraintNum
         constraints
         compliance
@@ -9,19 +9,17 @@ classdef Joint < handle
         ground  %If this is a ground joint
         index   % Global begining index for each collision 
         mIndces % Indices in the matrix
-        J1I
-        J2I     % If this is ground joint, J2 will be null
+        JIs
         b
         d
     end
 
     methods
-        function this = Joint(body1, body2, ground)
+        function this = Muscle(bodies, ground)
             this.constraintNum = 0;
             this.lambdaLen = 0;
             this.constraints = {};
-            this.body1 = body1;
-            this.body2 = body2;
+            this.bodies = bodies;
             this.ground = ground;
             this.compliance = 0;
             this.index = 0;

@@ -52,7 +52,7 @@ classdef ConFix < apbd.ConColl
 		end
 
 		%%
-		function init(this,h,hs,~,~) 
+		function init(this,h,hs,~,~,~) 
             this.d = this.body1.transformPoint(this.x1) - this.body2.transformPoint(this.x2);
             this.dt = this.d / h;
             this.biasCoefficient = -1 / hs;

@@ -14,7 +14,7 @@ classdef ConstraintSolver < handle
             this.itercount = 0;
         end
 
-        function [lambdax, x] = Gauss_Sidiel(this, A, b, mu, contactConstraintEndInd, x0)
+        function [lambdax, x] = Gauss_Sidiel(this, A, b, mu, constraintStartEndInds, jointProjection, x0)
             n = size(b,1);
             if nargin < 6
                 x = zeros(n,1);
@@ -24,7 +24,7 @@ classdef ConstraintSolver < handle
             this.rs = zeros(this.itermax,1);
             for iter = 1:this.itermax
                 
-                for i = 1 : 3 : contactConstraintEndInd
+                for i = 1 : 3 : constraintStartEndInds(1)
                     ri = b(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
                     if(x(i) < 0)
@@ -32,7 +32,7 @@ classdef ConstraintSolver < handle
                     end
                 end
                 
-                for i = 1 : contactConstraintEndInd
+                for i = 1 : constraintStartEndInds(1)
                     if(mod(i,3) == 1)
                         continue;
                     end
@@ -53,7 +53,17 @@ classdef ConstraintSolver < handle
                     end
                    
                 end
-                for i = contactConstraintEndInd + 1 : n
+                for i = constraintStartEndInds(1) + 1 : constraintStartEndInds(2)
+                    ri = b(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                    if(mod(i - constraintStartEndInds(1), 6) == 4)
+                        if(jointProjection(i) * x(i) <= 0)
+                            x(i) = 0;
+                        end
+                    end
+                end
+
+                for i = constraintStartEndInds(2) + 1 : constraintStartEndInds(3)
                     ri = b(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
                 end
@@ -66,10 +76,10 @@ classdef ConstraintSolver < handle
             %save('GS_lambda.mat',"lambda");
         end
 
-        function [lambdax, x] = Temporal_Gauss_Sidiel(this, A, b, d, mu, contactConstraintEndInd,substeps, x0)
+        function [lambdax, x] = Temporal_Gauss_Sidiel(this, A, b, d, mu, constraintStartEndInds, jointProjection, substeps, x0)
             n = size(b,1);
             lambdax = zeros(n,1);
-            if(nargin <8)
+            if(nargin <9)
                 x = zeros(n,1);
             else
                 x = x0;
@@ -78,8 +88,8 @@ classdef ConstraintSolver < handle
             d = d * substeps;
             bsub = - (cpv0 + d);
             for iter = 1:substeps
-                nind = 1:3:contactConstraintEndInd;
-                tind = 2:3:contactConstraintEndInd;
+                nind = 1:3:constraintStartEndInds(1);
+                tind = 2:3:constraintStartEndInds(1);
                 for i = nind
                     ri = bsub(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
@@ -100,7 +110,17 @@ classdef ConstraintSolver < handle
                     end
                 end
 
-                for i = contactConstraintEndInd + 1 : n
+                for i = constraintStartEndInds(1) + 1 : constraintStartEndInds(2)
+                    ri = bsub(i) - A(i,:)*x;
+                    x(i) = x(i) + ri / A(i,i);
+                    if(mod(i - constraintStartEndInds(1), 6) == 4)
+                        if(jointProjection(i) * x(i) <= 0)
+                            x(i) = 0;
+                        end
+                    end
+                end
+
+                for i = constraintStartEndInds(2) + 1 : constraintStartEndInds(3)
                     ri = bsub(i) - A(i,:)*x;
                     x(i) = x(i) + ri / A(i,i);
                 end

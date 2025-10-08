@@ -1,26 +1,19 @@
-classdef ConFixDistance < apbd.ConColl
+classdef ConFixDistanceViaPoint < apbd.ConColl
 	%ConCollRigidRigid Collision between two rigid bodies
 
 	properties
-		body1
-		body2
-		x1 % Position wrt body 1 (3x1)
-		x2 % Position wrt body 2 (3x1)
+        bodies
+        viaPoints
+        numBodies
         dis % Distance between 2 points
         dt % d/h
 
         contactFrame
-        w1   % Generalized mass vector (3x1)
-        delLinVel1 % Unit change for linear velocity matrix(3x3)
-        angDelta1 % Unit change for angular velocity matrix(3x3)
-        raXn1  % ra X nw * sqrt(I^(-1)) matrix(3x3)
-        raXnI1  % ra X nw * sqrt(I^(-1)) matrix(3x3)
-
-        w2   % Generalized mass vector (3x1)
-        delLinVel2 % Unit change for linear velocity matrix(3x3)
-        angDelta2 % Unit change for angular velocity matrix(3x3)
-        raXn2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
-        raXnI2  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        ws   % Generalized mass vector (3x1)
+        delLinVels % Unit change for linear velocity matrix(3x3)
+        angDeltas % Unit change for angular velocity matrix(3x3)
+        raXns  % ra X nw * sqrt(I^(-1)) matrix(3x3)
+        raXnIs  % ra X nw * sqrt(I^(-1)) matrix(3x3)
         dlambdas
 
         biasCoefficient
@@ -28,68 +21,50 @@ classdef ConFixDistance < apbd.ConColl
 
 	methods
 		%%
-        function this = ConFixDistance(body1,body2, xl1, xl2, dis)
+        function this = ConFixDistanceViaPoint(bodies, viaPoints, dis)
 			this = this@apbd.ConColl();
-			this.body1 = body1;
-			this.body2 = body2;
-			this.nw = [0 0 0]';
-			this.x1 = xl1;
-			this.x2 = xl2;
+			this.bodies = bodies;
+            this.numBodies = length(bodies);
+            this.viaPoints = viaPoints;
+			this.nw = zeros(3, this.numBodies);
             this.dis = dis;
 
-            this.contactFrame = zeros(3,1);
-
-            this.w1 = zeros(1,1);
-            this.raXn1 = zeros(3,1);
-            this.delLinVel1 = zeros(3,1);
-            this.angDelta1 = zeros(3,1);
-
-            this.w2 = zeros(1,1);
-            this.raXn2 = zeros(3,1);
-            this.delLinVel2 = zeros(3,1);
-            this.angDelta2 = zeros(3,1);
+            this.ws = zeros(1, this.numBodies);
+            this.raXns = zeros(3, this.numBodies);
+            this.raXnIs = zeros(3, this.numBodies);
+            this.delLinVels = zeros(3, this.numBodies);
+            this.angDeltas = zeros(3, this.numBodies);
 
              this.dlambdas = zeros(1,1);
 		end
 
 		%%
 		function init(this,h,hs) 
-            this.d = this.body1.transformPoint(this.x1) - this.body2.transformPoint(this.x2);
-            this.nw = this.d / norm(this.d);
-            this.d = this.d - this.dis* this.nw;
+            this.d = - this.dis;
+            this.nw = zeros(3, this.numBodies);
+            for i = 1:this.numBodies
+                if(i < this.numBodies)
+                    d = this.bodies{i}.transformPoint(this.viaPoints(:,i)) - this.bodies{i+1}.transformPoint(this.viaPoints(:,i+1));
+                    dNorm = norm(d);
+                    this.nw(:,i) = this.nw(:,i) + d / dNorm;
+                    this.nw(:,i+1) = this.nw(:,i+1) - d / dNorm;
+                    this.d = this.d + dNorm;
+                end
+    			m = this.bodies{i}.Mp;
+			    I = this.bodies{i}.Mr;
+			    q = this.bodies{i}.x(1:4);
+			    rl = this.viaPoints(:,i);
+                nl = se3.qRotInv(q, this.nw(:,i));
+			    rnl = se3.cross(rl,nl);
+                this.raXnIs(:,i) = se3.qRot(q,(sqrt(I).\rnl));
+                this.raXns(:,i) = se3.qRot(q,rnl);
+			    this.ws(i) = (1/m)*(nl'*nl) + this.raXnIs(:,i)' * this.raXnIs(:,i);
+                this.delLinVels(:,i) = this.nw(:,i) / m;
+                this.angDeltas(:,i) = se3.qRot(q,(I.\rnl));
+            end
             this.dt = this.d / h;
             this.biasCoefficient = -1 / hs;
-
             this.lambda = zeros(1,1);
-            this.contactFrame = this.nw;
-
-			m1 = this.body1.Mp;
-			I1 = this.body1.Mr;
-			q1 = this.body1.x(1:4);
-			rl1 = this.x1;
-
-			m2 = this.body2.Mp;
-			I2 = this.body2.Mr;
-			q2 = this.body2.x(1:4);
-			rl2 = this.x2;
-            
-            for i = 1:1
-                nl1 = se3.qRotInv(q1, this.contactFrame(:,i));
-			    rnl1 = se3.cross(rl1,nl1);
-                this.raXnI1(:,i) = se3.qRot(q1,(sqrt(I1).\rnl1));
-                this.raXn1(:,i) = se3.qRot(q1,rnl1);
-			    this.w1(i) = (1/m1) + this.raXnI1(:,i)' * this.raXnI1(:,i);
-                this.delLinVel1(:,i) = this.contactFrame(:,i) / m1;
-                this.angDelta1(:,i) = se3.qRot(q1,(I1.\rnl1));
-
-                nl2 = se3.qRotInv(q2, this.contactFrame(:,i));
-                rnl2 = se3.cross(rl2,nl2);
-                this.raXnI2(:,i) = se3.qRot(q2,(sqrt(I2).\rnl2));
-                this.raXn2(:,i) = se3.qRot(q2,rnl2);
-			    this.w2(i) = (1/m2) + this.raXnI2(:,i)' * this.raXnI2(:,i);
-                this.delLinVel2(:,i) = this.contactFrame(:,i) / m2;
-                this.angDelta2(:,i) = se3.qRot(q2,(I2.\rnl2));
-            end
         end
 
         %%
@@ -99,16 +74,19 @@ classdef ConFixDistance < apbd.ConColl
 
         %%
         function Cs = evalCs(this)
-            Cs = this.contactFrame' * (this.body1.v - this.body2.v) + this.raXn1' * this.body1.w - this.raXn2' * this.body2.w + this.contactFrame'* this.dt;
+            Cs = this.dt;
+            for i = 1:this.numBodies
+                Cs = Cs + this.nw(:,i)' * this.bodies{i}.v + this.raXns(:,i)' * this.bodies{i}.w;
+            end
         end
 
         %%
         function applyLambda(this, dlambdas)
             this.lambda = this.lambda + dlambdas;
-            this.body1.v = this.body1.v +  this.delLinVel1 * dlambdas;
-            this.body1.w = this.body1.w +  this.angDelta1 * dlambdas;
-            this.body2.v = this.body2.v - this.delLinVel2 * dlambdas;
-            this.body2.w = this.body2.w - this.angDelta2 * dlambdas;
+            for i = 1:this.numBodies
+                this.bodies{i}.v = this.bodies{i}.v +  this.delLinVels(:,i) * dlambdas;
+                this.bodies{i}.w = this.bodies{i}.w +  this.angDeltas(:,i) * dlambdas;
+            end 
         end
 
 		%%
@@ -224,10 +202,16 @@ classdef ConFixDistance < apbd.ConColl
 
 		%%
 		function draw(this)
-			x = this.body1.transformPoint(this.x1);
-			plot3(x(1),x(2),x(3),'ro');
-			x = this.body2.transformPoint(this.x2);
-			plot3(x(1),x(2),x(3),'go');
+            xs = zeros(3, this.numBodies);
+            for i = 1:this.numBodies
+			    xs(:,i) = this.bodies{i}.transformPoint(this.viaPoints(:,i));
+            end
+            for i = 1:this.numBodies
+			    plot3(xs(1,i),xs(2,i),xs(3,i),'go');
+                if(i< this.numBodies)
+                    plot3(xs(1,i:i+1),xs(2,i:i+1),xs(3,i:i+1),'g');
+                end
+            end
 		end
 	end
 end

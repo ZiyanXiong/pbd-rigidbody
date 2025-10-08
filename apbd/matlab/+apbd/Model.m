@@ -5,6 +5,7 @@ classdef Model < handle
 		bodies % list of bodies
 		constraints %list of constraints
         joints %list of joints
+        muscles % list of muscles
 		collider % collision handler
 		grav % gravity
         f % force for each body at current timestep
@@ -54,6 +55,7 @@ classdef Model < handle
 			this.bodies = {};
 			this.constraints = {};
             this.joints = {};
+            this.muscles = {};
 			this.grav = [0 0 -980]';
 			this.ground.E = zeros(4);
 
@@ -282,6 +284,9 @@ classdef Model < handle
             for i = 1 : length(this.joints)
                 this.joints{i}.init(this.h, this.hs, this.k);
             end
+            for i = 1 : length(this.muscles)
+                this.muscles{i}.init(this.h, this.hs, this.k);
+            end
             this.draw();
 
 			this.stepBDF1();
@@ -315,6 +320,7 @@ classdef Model < handle
                     this.collider.collisions{i}.compute_d();
                     ci = ci + 1;
                 end
+                cc = n-1;
 
                 for i = 1 : length(this.joints)
                     this.joints{i}.index = ci;
@@ -324,10 +330,23 @@ classdef Model < handle
                     this.joints{i}.compute_d();
                     ci = ci + 1;
                 end
+                cj = n - 1;
+
+                for i = 1 : length(this.muscles)
+                    this.muscles{i}.index = ci;
+                    this.muscles{i}.mIndces = n : n - 1 + this.muscles{i}.lambdaLen;
+                    n = n + this.muscles{i}.lambdaLen;
+                    this.muscles{i}.computeJ_b();
+                    this.muscles{i}.compute_d();
+                    ci = ci + 1;
+                end
+                cm = n - 1;
 
                 n = n-1;
                 b = zeros(n,1);
                 d = zeros(n,1);
+                compliance = zeros(n,1);
+                jointPorjection = zeros(n,1);
                 for i = this.collider.activeCollisions
                     inds = this.collider.collisions{i}.mIndces;
                     b(inds) = this.collider.collisions{i}.b;
@@ -338,6 +357,14 @@ classdef Model < handle
                     inds = this.joints{i}.mIndces;
                     b(inds) = this.joints{i}.b;
                     d(inds) = this.joints{i}.d;
+                    jointPorjection(inds)=this.joints{i}.limitSigns;
+                end
+
+                for i = 1 : length(this.muscles)
+                    inds = this.muscles{i}.mIndces;
+                    b(inds) = this.muscles{i}.b;
+                    d(inds) = this.muscles{i}.d;
+                    compliance(inds) = this.muscles{i}.compliance;
                 end
 
                 for i = 1:length(this.bodies)
@@ -371,22 +398,28 @@ classdef Model < handle
                     end
                 end
 
-                A = L*L';
+                for i = 1 : length(this.muscles)
+                    rows = this.muscles{i}.mIndces;
+                    for j = 1 : this.muscles{i}.numBodies
+                        cols =  this.muscles{i}.bodies{j}.colIndices;
+                        L(rows,cols) = this.muscles{i}.JIs(j,:);
+                    end
+                end
+
+                A = L*L' + diag(compliance);
                 mu = this.bodies{1}.mu;
 
                 itermax = this.substeps;                
                 solver = ConstraintSolver(itermax,1e-6);
-                if(isempty(this.joints))
-                    contactConstraintEndInd = length(b);
-                else
-                    contactConstraintEndInd = this.joints{1}.mIndces(1) - 1;
-                end
+                constraintStartEndInds = [cc, cj, cm];
+
                 %[lambdas, lambdav] = solver.Cone_GPQP(A, b, mu, contactConstraintEndInd);
                 %[lambdas, lambdav] = solver.Temporal_Gauss_Sidiel(A, b, d, contactConstraintEndInd, mu, 150,lambdas);
                 %[lambdas, lambdav] = solver.SOCP(L, b, mu);
                 if(this.solverType == 1)
-                    [lambdas, lambdav] = solver.Gauss_Sidiel(A, b, mu, contactConstraintEndInd);
-                    lambdas = pinv(A)*b;
+                    [lambdas, lambdav] = solver.Temporal_Gauss_Sidiel(A, b, d, mu, constraintStartEndInds, jointPorjection, 50);
+                    %[lambdas, lambdav] = solver.Gauss_Sidiel(A, b, mu, contactConstraintEndInd);
+                    %lambdas = pinv(A)*b;
                 else
                     [lambdas, lambdav] = solver.Staggered(A, b, mu, contactConstraintEndInd);
                 end
@@ -422,13 +455,23 @@ classdef Model < handle
                     this.joints{i}.recordTorques(this.k);
                 end
 
+                for i = 1 : length(this.muscles)
+                    l = this.muscles{i}.lambdaLen-1;
+                    start = this.muscles{i}.mIndces(1);
+                    lambdai = lambdas(start:start+l);
+                    this.muscles{i}.applyLambdas(lambdai);
+                    this.muscles{i}.compute_b();
+                end
+
                 for i = 1 : length(this.bodies)
                     this.bodies{i}.updateStatesDirect(this.h);
                 end
             end
 
-            %{
-            [~,lambdav] = solver.Temporal_Gauss_Sidiel(A, b+d, zeros(n,1), mu, contactConstraintEndInd, 10, lambdav);
+            
+            %[~,lambdav] = solver.Temporal_Gauss_Sidiel(A, b+d, zeros(n,1), mu, contactConstraintEndInd, 10, lambdav);
+            solver.itermax = 10;
+            [~,lambdav] = solver.Gauss_Sidiel(A, b+d, mu, constraintStartEndInds, jointPorjection, lambdav);
             dlambdas = lambdav - lambdas;
             %dlambdavs = lambdavs - lambdas;
 
@@ -448,9 +491,15 @@ classdef Model < handle
                 this.joints{i}.applyLambdas(lambdai);
                 this.joints{i}.compute_b();
             end
-            %}
-            
 
+            for i = 1 : length(this.muscles)
+                l = this.muscles{i}.lambdaLen-1;
+                start = this.muscles{i}.mIndces(1);
+                lambdai = dlambdas(start:start+l);
+                this.muscles{i}.applyLambdas(lambdai);
+                this.muscles{i}.compute_b();
+            end
+            
 			this.t = this.t + this.h;
             for i = 1 : length(this.bodies)
                 this.bodies{i}.integrateStates();
@@ -539,6 +588,9 @@ classdef Model < handle
                     this.joints{i}.draw();
                 end
 
+                for i = 1: length(this.muscles)
+                    this.muscles{i}.draw();
+                end
 				% Draw collisions
                 for i = this.collider.activeCollisions
                     %this.collider.collisions{i}.draw();

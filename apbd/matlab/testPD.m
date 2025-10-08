@@ -1,8 +1,8 @@
 % Parameters
 dt = 0.01;             % Time step
 steps = 100;           % Number of steps
-kp = 1000;             % Proportional gain
-kd = 100;              % Derivative gain
+kp = 100;             % Proportional gain
+kd = 10;              % Derivative gain
 
 % Initial state
 pos = 0.0;             % Initial position
@@ -17,9 +17,9 @@ positions_error = zeros(1, steps);
 
 % Simulation loop
 for i = 1:steps
-    %[pos,vel] = explicitDrive(pos,vel,target_pos, target_vel, kp, kd, dt);
+    [pos,vel] = explicitDrive(pos,vel,target_pos, target_vel, kp, kd, dt);
     %[pos,vel] = implicitDrive(pos,vel,target_pos, target_vel, kp, kd, dt);
-    [pos,vel] = semiImplicitDrive(pos,vel,target_pos, target_vel, kp, kd, dt);
+    %[pos,vel] = semiImplicitDrive(pos,vel,target_pos, target_vel, kp, kd, dt);
     positions_error(i) = target_pos - pos;
 end
 

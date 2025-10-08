@@ -22,6 +22,7 @@ classdef ConRotate < apbd.ConColl
         dlambdas
 
         biasCoefficient
+        limitSign
 	end
 
 	methods
@@ -55,10 +56,11 @@ classdef ConRotate < apbd.ConColl
 
             this.kp = kp;
             this.kd = kd;
+            this.limitSign = 0;
 		end
 
 		%%
-		function init(this,h,hs,thetaTarget, wTarget)
+        function init(this,h,hs,theta1, theta2, isJointlimit)
 			I1 = this.body1.Mr;
 			q1 = this.body1.x(1:4);
 
@@ -77,19 +79,51 @@ classdef ConRotate < apbd.ConColl
                 this.contactFrame(:,i) = this.body1.transformVector(this.cf1(:,i));
             end
           
-            dqAlign = se3.computeDq(this.body2.transformVector(this.cf2(:,1)), this.body1.transformVector(this.cf1(:,1)));
-            dqTarget = se3.computeDq(se3.qRot(dqAlign,this.body2.transformVector(this.cf2(:,2))), this.body1.transformVector(this.cf1(:,2)));
+            % dqAlign = se3.computeDq(this.body2.transformVector(this.cf2(:,1)), this.body1.transformVector(this.cf1(:,1)));
+            % dqTarget = se3.computeDq(se3.qRot(dqAlign,this.body2.transformVector(this.cf2(:,2))), this.body1.transformVector(this.cf1(:,2)));
+            % dqTarget = se3.computeDq(this.body2.transformVector(this.cf2(:,2)), this.body1.transformVector(this.cf1(:,2)));
 
-            dtheta = se3.dqToDeltaTheta(dqAlign);
-            this.dt = this.contactFrame' * dtheta / h;
-            dthetaTarget = this.contactFrame(:,1)'*se3.dqToDeltaTheta(dqTarget);
+            % dtheta = se3.dqToDeltaTheta(dqAlign);
+            % this.dt = this.contactFrame' * dtheta / h;
+            % dthetaTarget = this.contactFrame(:,1)'*se3.dqToDeltaTheta(dqTarget);
             
-            angVelocity = this.contactFrame(:,1)'*(this.body1.w - this.body2.w);
-            a = (h/(h*(h*this.kp+this.kd)*(this.contactFrame(:,1)'* (this.angDelta1(:,1) - this.angDelta2(:,1))) + 1));
-            %a = (h/(h*(h*this.kp+this.kd) + 1));
-            this.dt(1) = a * (this.kp*((dthetaTarget - thetaTarget) + angVelocity * h) + ...
-                this.kd*(angVelocity - wTarget)) - angVelocity;            
+            dtheta = asin(se3.cross(this.body2.transformVector(this.cf2(:,1)), this.body1.transformVector(this.cf1(:,1))));
+            this.dt = this.contactFrame' * dtheta / h;
+
+            n1 = this.body1.transformVector(this.cf1(:,2));
+            n2 = this.body2.transformVector(this.cf2(:,2));
+            dthetaTarget = asin(this.contactFrame(:,1)'*se3.cross(n2, n1));
+            if(n1'*n2 < 0)
+                dthetaTarget = pi - dthetaTarget;
+            end
+            dthetaTarget = atan2(sin(dthetaTarget),cos(dthetaTarget));
+            if(isJointlimit)
+                if(dthetaTarget - theta1 > -0.02)
+                    this.dt(1) = (dthetaTarget - theta1) / h;
+                    this.limitSign = -1;
+                elseif(dthetaTarget - theta2 < 0.02)
+                    this.dt(1) = (dthetaTarget - theta2) / h;
+                    this.limitSign = 1;
+                else
+                    this.dt(1) = 0;
+                    this.limitSign = 0;
+                end
+            else
+                thetaTarget = theta1;
+                wTarget = theta2;
+                angVelocity = this.contactFrame(:,1)'*(this.body1.w - this.body2.w);
+                a = (h/(h*(h*this.kp+this.kd)*(this.contactFrame(:,1)'* (this.angDelta1(:,1) - this.angDelta2(:,1))) + 1));
+                %a = (h/(h*(h*this.kp+this.kd) + 1));
+                this.dt(1) = a * (this.kp*((dthetaTarget - thetaTarget) + angVelocity * h) + ...
+                    this.kd*(angVelocity - wTarget)) - angVelocity; 
+                %this.dt(1) = a * (this.kp*((dthetaTarget - thetaTarget) + angVelocity * h) + ...
+                %    this.kd*(angVelocity - wTarget)) - angVelocity; 
+            end
             this.biasCoefficient = -1 / hs;
+
+            % dthetaTarget = this.dt(1) * h;
+            % dtheta = se3.dqToDeltaTheta(se3.qMul(se3.deltaThetaToDq(this.contactFrame(:,1)*dthetaTarget), dqAlign));
+            % this.dt = this.contactFrame' * dtheta / h;
 
             this.lambda = zeros(3,1);
         end

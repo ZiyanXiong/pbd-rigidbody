@@ -3,6 +3,8 @@ classdef JointHinge2 < Joint
         axis % Axis in the local coordiante of body 1
         xl1  % Joint position in the local coordiante of body1
         torques
+        limits
+        limitSigns
     end
 
     methods
@@ -11,9 +13,11 @@ classdef JointHinge2 < Joint
             this.xl1 = xl1;
             this.axis = axis / norm(axis);
             this.constraintNum = 2;
-            this.lambdaLen = 5;
+            this.lambdaLen = 6;
             this.constraints{end+1} = apbd.ConFix(this.body1,this.body2, xl1, this.axis);
             this.constraints{end+1} = apbd.ConRotate(this.body1,this.body2, xl1, this.axis);
+            this.limits = [pi,-pi];
+            this.limitSigns = [];
 
              if(nargin < 6)
                  this.torques = [];
@@ -28,8 +32,14 @@ classdef JointHinge2 < Joint
             this.J2I = zeros(n,6);
             this.b = zeros(n,1);
             for i = 1:this.constraintNum
-                this.constraints{i}.init(h,hs,0,0);
+                this.constraints{i}.init(h,hs,this.limits(1),this.limits(2),true);
             end
+            this.limitSigns = [0;0;0;this.constraints{2}.limitSign;0;0;];
+        end
+
+        %%
+        function setLimits(this, limitHight, limitLow)
+            this.limits = [limitHight, limitLow];
         end
 
         %%
@@ -70,14 +80,14 @@ classdef JointHinge2 < Joint
                         Cs = this.constraints{i}.evalCs();
                         this.b(rows) = -Cs;
                     else
-                        rows = 4:5;
-                        this.J1I(rows,1:3) = this.constraints{i}.nI1(:,2:3)';
-                        this.J1I(rows,4:6) = zeros(2,3);
+                        rows = 4:6;
+                        this.J1I(rows,1:3) = this.constraints{i}.nI1';
+                        this.J1I(rows,4:6) = zeros(3,3);
 
-                        this.J2I(rows,1:3) = -this.constraints{i}.nI2(:,2:3)';
-                        this.J2I(rows,4:6) = zeros(2,3);
+                        this.J2I(rows,1:3) = -this.constraints{i}.nI2';
+                        this.J2I(rows,4:6) = zeros(3,3);
                         Cs = this.constraints{i}.evalCs();
-                        this.b(rows) = -Cs(2:3);
+                        this.b(rows) = -Cs;
                     end
                 end
             end
@@ -105,8 +115,8 @@ classdef JointHinge2 < Joint
                     rows = 1:3;
                     this.d(rows) = this.constraints{i}.contactFrame'* this.constraints{i}.dt;
                 else
-                    rows = 4:5;
-                    this.d(rows) = this.constraints{i}.dt(2:3);
+                    rows = 4:6;
+                    this.d(rows) = this.constraints{i}.dt;
                 end
             end
         end
@@ -118,8 +128,8 @@ classdef JointHinge2 < Joint
                     rows = 1:3;
                     this.constraints{i}.applyLambda(lambdas(rows));
                 else
-                    rows = 4:5;
-                    this.constraints{i}.applyLambda([0; lambdas(rows)]);
+                    rows = 4:6;
+                    this.constraints{i}.applyLambda(lambdas(rows));
                 end
             end
         end
