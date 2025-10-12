@@ -52,7 +52,7 @@ namespace _2psp {
 
         void construct_collision_order();
         void solve_collisions(dtype h);
-        bool solve_collisions_2psp(dtype h, int& solve_count, int sp_iter_max, dtype tol);
+        bool solve_collisions_2psp(dtype h, int& solve_count, int sp_iter_max, dtype tol, dtype stable_tol);
         void solve_velocity(dtype h);
 
         void step_unconstrained(VectorX& f_t);

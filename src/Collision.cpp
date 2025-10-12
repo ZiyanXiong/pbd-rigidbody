@@ -69,6 +69,7 @@ namespace _2psp {
 
 		//std::cout << "w1:\n" << _w1 << std::endl;
 		//std::cout << "w2:\n" << _w2 << std::endl;
+		//std::cout << "J1:\n" << _J1 << std::endl;
 		//std::cout << "J1/M1:\n" << _J_div_m1 << std::endl;
 		//std::cout << "J2/M2:\n" << _J_div_m2 << std::endl;
 		//std::cout << "I_inv1:\n" << Iinv1 << std::endl;
@@ -102,7 +103,10 @@ namespace _2psp {
 			dtype dlambda_nor;
 			dtype c;
 			c = _J1(i).row(0).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(0).dot(_body2->_phi + _body2->_phi_dt / h) + _J1(i).row(0).tail(3).dot(_d.col(i)) / h;
-			//std::cout << "bias:\n" << _J1(i).row(0).tail(3).dot(_d.col(i)) / h <<  std::endl;
+			//std::cout << "_J2(i).row(0): " << _J2(i).row(0) << std::endl;
+			//std::cout << "Body2 Phi: " << _body2->_phi.transpose() << std::endl;
+			//std::cout << "Body2 Phi_dt: " << _body2->_phi_dt.transpose() << std::endl;
+			//std::cout << "c: "<< c << " = " << _J1(i).row(0).dot(_body1->_phi + _body1->_phi_dt / h) << " - " << _J2(i).row(0).dot(_body2->_phi + _body2->_phi_dt / h) << " + " << _J1(i).row(0).tail(3).dot(_d.col(i)) / h << std::endl;
 			//c += _J1(i).row(0).dot(_body1->_phi_dt / h) - _J2(i).row(0).dot(_body2->_phi_dt / h) + _J1(i).row(0).tail(3).dot(_d.col(i)) / h;
 
 			dlambda_nor = -c / (_w1.col(i)(0) + _w2.col(i)(0));
@@ -112,6 +116,28 @@ namespace _2psp {
 			_lambdas.col(i)(0) += dlambda_nor;
 			_body1->_phi += _J_div_m1(i).row(0).transpose() * dlambda_nor;
 			_body2->_phi -= _J_div_m2(i).row(0).transpose() * dlambda_nor;
+
+			//dtype dlambda_tan1, dlambda_tan2, c1, c2, lambda_tan_norm;
+			//c1 = _J1(i).row(1).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(1).dot(_body2->_phi + _body2->_phi_dt / h) + _J1(i).row(1).tail(3).dot(_d.col(i)) / h;
+			////c1 += _J1(i).row(1).dot(_body1->_phi_dt / h) - _J2(i).row(1).dot(_body2->_phi_dt / h) + _J1(i).row(1).tail(3).dot(_d.col(i)) / h;
+			//c2 = _J1(i).row(2).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(2).dot(_body2->_phi + _body2->_phi_dt / h) + _J1(i).row(2).tail(3).dot(_d.col(i)) / h;
+			////c2 += _J1(i).row(2).dot(_body1->_phi_dt / h) - _J2(i).row(2).dot(_body2->_phi_dt / h) + _J1(i).row(2).tail(3).dot(_d.col(i)) / h;
+
+			//dlambda_tan1 = -c1 / (_w1.col(i)(1) + _w2.col(i)(1));
+			//dlambda_tan2 = -c2 / (_w1.col(i)(2) + _w2.col(i)(2));
+			//Vector2 lambda_tan(dlambda_tan1 + _lambdas.col(i)(1), dlambda_tan2 + _lambdas.col(i)(2));
+			//lambda_tan_norm = lambda_tan.norm();
+			//if (lambda_tan_norm > _mu * _lambdas.col(i)(0) && lambda_tan_norm > math::eps_big) {
+			//	dlambda_tan1 = _mu * _lambdas.col(i)(0) * lambda_tan(0) / lambda_tan_norm - _lambdas.col(i)(1);
+			//	dlambda_tan2 = _mu * _lambdas.col(i)(0) * lambda_tan(1) / lambda_tan_norm - _lambdas.col(i)(2);
+			//}
+			//_lambdas.col(i)(1) += dlambda_tan1;
+			//_lambdas.col(i)(2) += dlambda_tan2;
+			////std::cout << "lambdas :\n" << _lambdas.col(i) << std::endl;
+			//_body1->_phi += _J_div_m1(i).row(1).transpose() * dlambda_tan1;
+			//_body1->_phi += _J_div_m1(i).row(2).transpose() * dlambda_tan2;
+			//_body2->_phi -= _J_div_m2(i).row(1).transpose() * dlambda_tan1;
+			//_body2->_phi -= _J_div_m2(i).row(2).transpose() * dlambda_tan2;
 		}
 	}
 
@@ -133,6 +159,7 @@ namespace _2psp {
 			}
 			_lambdas.col(i)(1) += dlambda_tan1;
 			_lambdas.col(i)(2) += dlambda_tan2;
+			//std::cout << "lambdas :\n" << _lambdas.col(i) << std::endl;
 			_body1->_phi += _J_div_m1(i).row(1).transpose() * dlambda_tan1;
 			_body1->_phi += _J_div_m1(i).row(2).transpose() * dlambda_tan2;
 			_body2->_phi -= _J_div_m2(i).row(1).transpose() * dlambda_tan1;
@@ -232,6 +259,7 @@ namespace _2psp {
 			dtype dlambda_nor;
 			dtype c;
 			c = _J1(i).row(0).dot(_body1->_phi) - _J2(i).row(0).dot(_body2->_phi);
+			//c = _J1(i).row(0).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(0).dot(_body2->_phi + _body2->_phi_dt / h);
 			dlambda_nor = -c / (_w1.col(i)(0) + _w2.col(i)(0));
 			if (_lambdas.col(i)(0) + dlambda_nor < 0) {
 				dlambda_nor = -_lambdas.col(i)(0);
@@ -239,6 +267,27 @@ namespace _2psp {
 			_lambdas.col(i)(0) += dlambda_nor;
 			_body1->_phi += _J_div_m1(i).row(0).transpose() * dlambda_nor;
 			_body2->_phi -= _J_div_m2(i).row(0).transpose() * dlambda_nor;
+
+			//dtype dlambda_tan1, dlambda_tan2, c1, c2, lambda_tan_norm;
+			//c1 = _J1(i).row(1).dot(_body1->_phi) - _J2(i).row(1).dot(_body2->_phi);
+			//c2 = _J1(i).row(2).dot(_body1->_phi) - _J2(i).row(2).dot(_body2->_phi);
+			////c1 = _J1(i).row(1).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(1).dot(_body2->_phi + _body2->_phi_dt / h);
+			////c2 = _J1(i).row(2).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(2).dot(_body2->_phi + _body2->_phi_dt / h);
+
+			//dlambda_tan1 = -c1 / (_w1.col(i)(1) + _w2.col(i)(1));
+			//dlambda_tan2 = -c2 / (_w1.col(i)(2) + _w2.col(i)(2));
+			//Vector2 lambda_tan(dlambda_tan1 + _lambdas.col(i)(1), dlambda_tan2 + _lambdas.col(i)(2));
+			//lambda_tan_norm = lambda_tan.norm();
+			//if (lambda_tan_norm > _mu * _lambdas.col(i)(0)) {
+			//	dlambda_tan1 = _mu * _lambdas.col(i)(0) * lambda_tan(0) / lambda_tan_norm - _lambdas.col(i)(1);
+			//	dlambda_tan2 = _mu * _lambdas.col(i)(0) * lambda_tan(1) / lambda_tan_norm - _lambdas.col(i)(2);
+			//}
+			//_lambdas.col(i)(1) += dlambda_tan1;
+			//_lambdas.col(i)(2) += dlambda_tan2;
+			//_body1->_phi += _J_div_m1(i).row(1).transpose() * dlambda_tan1;
+			//_body1->_phi += _J_div_m1(i).row(2).transpose() * dlambda_tan2;
+			//_body2->_phi -= _J_div_m2(i).row(1).transpose() * dlambda_tan1;
+			//_body2->_phi -= _J_div_m2(i).row(2).transpose() * dlambda_tan2;
 		}
 	}
 
@@ -247,6 +296,8 @@ namespace _2psp {
 			dtype dlambda_tan1, dlambda_tan2, c1, c2, lambda_tan_norm;
 			c1 = _J1(i).row(1).dot(_body1->_phi) - _J2(i).row(1).dot(_body2->_phi);
 			c2 = _J1(i).row(2).dot(_body1->_phi) - _J2(i).row(2).dot(_body2->_phi);
+			//c1 = _J1(i).row(1).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(1).dot(_body2->_phi + _body2->_phi_dt / h);
+			//c2 = _J1(i).row(2).dot(_body1->_phi + _body1->_phi_dt / h) - _J2(i).row(2).dot(_body2->_phi + _body2->_phi_dt / h);
 
 			dlambda_tan1 = -c1 / (_w1.col(i)(1) + _w2.col(i)(1));
 			dlambda_tan2 = -c2 / (_w1.col(i)(2) + _w2.col(i)(2));

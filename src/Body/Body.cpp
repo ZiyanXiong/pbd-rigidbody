@@ -107,7 +107,7 @@ namespace _2psp {
 
     void Body::update_substep_states(dtype dt) {
         _phi_dt += _phi * dt;
-        _delta_phi += _phi * dt; // accumulate the delta phi for velocity solve
+        //_delta_phi += _phi * dt; // accumulate the delta phi for velocity solve
     }
 
     void Body::interagate_state() {
@@ -117,7 +117,7 @@ namespace _2psp {
         Vector3 dtheta_axis = _delta_phi.segment<3>(0).normalized();
         AngleAxis dAa(_delta_phi.segment<3>(0).norm(), dtheta_axis);
         //std::cout << "dAa:\n" << Quat(dAa) << std::endl;
-        //std::cout << "q0:\n" << _q.segment<4>(0) << std::endl;
+        //std::cout << "q0:\n" << _q.segment<4>(0) << std::endl;  v 
         _q.segment<4>(0) = (dAa * Quat(_q.segment<4>(0))).normalized().coeffs();
         _q.segment<3>(4) += _delta_phi.segment<3>(3);
         //std::cout << "q1:\n" << _q.segment<4>(0) << std::endl;

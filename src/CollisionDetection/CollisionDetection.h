@@ -9,12 +9,15 @@ namespace _2psp {
 	class BodyCuboid;
 	class BodyPlane;
 	class Collision;
+	class BodyMesh;
 
 	// detect the collision between ground and a cuboid body
 	// return the list of the contact points represented in body frame.
 	bool collision_detection_ground_cuboid(BodyPlane* ground, BodyCuboid* body, std::vector<Collision>& collisions);
+	bool collision_detection_ground_mesh(BodyPlane* ground, BodyMesh* body, std::vector<Collision>& collisions);
 
 	bool collision_detection_cuboid_cuboid(BodyCuboid* cuboid1, BodyCuboid* cuboid2, std::vector<Collision>& collisions);
+	bool collision_detection_mesh_mesh(BodyMesh* body1, BodyMesh* body2, std::vector<Collision>& collisions);
 
 	// detect the collision between a general body and a primitive body
 	// the general body should be able to give a list of contact points on the surface.

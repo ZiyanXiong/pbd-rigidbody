@@ -1,15 +1,14 @@
-CMAKE_MINIMUM_REQUIRED(VERSION 3.10)
+CMAKE_MINIMUM_REQUIRED(VERSION 3.12)
 
 # Name of the project
-PROJECT(pbd-rigidbody-cpp)
+PROJECT(2PSP)
 
-
-set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR})
+set(SOURCE_DIR ${CMAKE_CURRENT_LIST_DIR}/src)
 
 file(GLOB_RECURSE HEADERS ${SOURCE_DIR}/*.h)
 file(GLOB_RECURSE SOURCES ${SOURCE_DIR}/*.cpp)
 
-
+find_package(coal REQUIRED)
 # Set the executable.
 ADD_EXECUTABLE(${CMAKE_PROJECT_NAME} ${SOURCES} ${HEADERS})
 
@@ -37,24 +36,5 @@ INCLUDE_DIRECTORIES(${EIGEN3_INCLUDE_DIR})
 # Use c++17
 SET_TARGET_PROPERTIES(${CMAKE_PROJECT_NAME} PROPERTIES CXX_STANDARD 17)
 
-target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${SOURCE_DIR}/)
-
-# OS specific options and libraries
-IF(WIN32)
-	# -Wall produces way too many warnings.
-	# -pedantic is not supported.
-	# Disable warning 4996.
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} /wd4996")
-	TARGET_LINK_LIBRARIES(${CMAKE_PROJECT_NAME} opengl32.lib)
-	SET_PROPERTY(DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} PROPERTY VS_STARTUP_PROJECT ${CMAKE_PROJECT_NAME})
-ELSE()
-	# Enable all pedantic warnings.
-	SET(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wall -pedantic")
-	IF(APPLE)
-		# Add required frameworks for GLFW.
-		TARGET_LINK_LIBRARIES(${CMAKE_PROJECT_NAME} "-framework OpenGL -framework Cocoa -framework IOKit -framework CoreVideo")
-	ELSE()
-		#Link the Linux OpenGL library
-		TARGET_LINK_LIBRARIES(${CMAKE_PROJECT_NAME} "GL")
-	ENDIF()
-ENDIF()
+target_include_directories(${CMAKE_PROJECT_NAME} PRIVATE ${SOURCE_DIR}/ ${COAL_INCLUDE_DIRS})
+target_link_libraries(${CMAKE_PROJECT_NAME} PRIVATE coal::coal)

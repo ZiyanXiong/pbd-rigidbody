@@ -39,6 +39,8 @@ long long test_speed(int model_id, std::string solver, int substeps) {
 			std::cerr <<"Running" << sim->_name << " " << solver << " " << substeps << ", time = " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "ms" << std::endl;
 			duration += std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0);
 		}
+		if(solver == "2PSP")
+			std::cerr << "Running" << sim->_name << " " << solver << " " << substeps << ",average iteration: " << sim->_iter_count / 300.0 << std::endl;
 		sim->export_replay("../Results/" + std::to_string(model_id));
 		sim->reset();
 	}
@@ -71,24 +73,24 @@ void save_time_report(std::string folder, Eigen::VectorXi& model_ids, std::vecto
 }
 
 int main() {
-	Eigen::VectorXi model_ids(10);
-	model_ids << 0, 4, 5, 8, 9, 10, 11, 13, 14, 15;
+	Eigen::VectorXi model_ids(11);
+	model_ids << 0, 4, 5, 8, 9, 10, 11, 12, 13, 14, 15;
 	//Eigen::VectorXi model_ids(5);
 	//model_ids << 10, 11, 13, 14, 15;
 	std::vector<std::vector<long long>> durations(model_ids.size(), std::vector<long long>(4, 0));
 
 	for (int i = 0; i < model_ids.size(); i++) {
 		std::cerr << "Testing model " << model_ids(i) << std::endl;
-		durations[i][0] = test_speed(model_ids(i), "TGS", 50);
-		durations[i][1] = test_speed(model_ids(i), "TGS", 150);
-		durations[i][2] = test_speed(model_ids(i), "TGS", 500);
+		//durations[i][0] = test_speed(model_ids(i), "TGS", 50);
+		//durations[i][1] = test_speed(model_ids(i), "TGS", 150);
+		//durations[i][2] = test_speed(model_ids(i), "TGS", 500);
 		durations[i][3] = test_speed(model_ids(i), "2PSP", 150);
 	}
 
 	save_time_report("../Results/", model_ids, durations);
 
-	//int model_id = 9;
-	//_2psp::Model* sim =_2psp::SimEnvGenerator::createScene(model_id, "TGS", 500);
+	//int model_id = 0;
+	//_2psp::Model* sim =_2psp::SimEnvGenerator::createScene(model_id, "TGS", 50);
 	//if (model_id == 11) {
 	//	_2psp::VectorX f_tm = _2psp::VectorX::Zero(sim->_ndof_m / 7 * 6);
 	//	f_tm.segment<6>(45 * 6) << 0., -800000, 0., 0., 0., 0.;
@@ -109,5 +111,5 @@ int main() {
 	//	auto t1 = Clock::now();
 	//	std::cerr << "time = " << std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count() << "ms" << std::endl;
 	//}
-	//sim->export_replay("../Results/");
+	//sim->export_replay("../Results/" + std::to_string(model_id));
 }

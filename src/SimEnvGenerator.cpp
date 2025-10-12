@@ -3,6 +3,7 @@
 #include "Robot.h"
 #include "Body/BodyCuboid.h"
 #include "Body/BodyPlane.h"
+#include "Body/BodyMesh.h"
 
 #include "Utils.h"
 #include "Common.h"
@@ -27,7 +28,7 @@ namespace _2psp{
             Robot* robot = new Robot();
             Vector3 length(4.0, 4.0, 4.0);
 
-            int n_bodies = 10; // number of bodies
+            int n_bodies = 2; // number of bodies
             VectorX q(7 * n_bodies);
             VectorX dq(7 * n_bodies);
 
@@ -54,7 +55,7 @@ namespace _2psp{
             // Stacking 10 boxes on a slope
             // construct simulation
             options->_2psp_iter_max = 35;
-            Model* sim = new Model(options, "Scene 0");
+            Model* sim = new Model(options, "Scene 4");
 
             // define robot
             Robot* robot = new Robot();
@@ -91,7 +92,7 @@ namespace _2psp{
         case 5:
         {
             // Stacking: Inverted Tower
-            Model* sim = new Model(options, "Scene 0");
+            Model* sim = new Model(options, "Scene 5");
 
             // define robot
             Robot* robot = new Robot();
@@ -324,12 +325,71 @@ namespace _2psp{
             return sim;
             break;
         }
+        case 12:{
+            // Stacking: Bowls
+            // construct simulation
+            options->_2psp_iter_max = 45;
+            //options->_2psp_tol = math::eps;
+            Model* sim = new Model(options, "Scene 12");
+
+            // define robot
+            Robot* robot = new Robot();
+            dtype mu = 0.6; // friction coefficient
+
+            dtype angle;
+            int n_bodies = 10; // number of bodies
+            VectorX q(7 * n_bodies);
+            VectorX dq(7 * n_bodies);
+            std::vector<std::string> file_names = { "../ShapeFiles/bowl/bowl.obj",
+                "../ShapeFiles/bowl/bowl_part2.obj",
+                "../ShapeFiles/bowl/bowl_part3.obj",
+                "../ShapeFiles/bowl/bowl_part4.obj",
+                "../ShapeFiles/bowl/bowl_part5.obj",
+                "../ShapeFiles/bowl/bowl_part6.obj" };
+
+            for (int i = 0; i < n_bodies; ++i) {
+                robot->add_body(new BodyMesh(sim, nullptr, file_names, (dtype)1.0));
+                robot->_bodies.back()->_mu = mu; // set friction coefficient
+                dtype x = 0;
+                dtype y = 0;
+                dtype z = (4. * i + 2.) * 0.49 + 0.3;
+                if (i % 2 == 1) { 
+                    angle = constants::pi / 60.;
+                    x = -0.03 * 4.;
+                }
+                else {
+                    angle = -constants::pi / 60.;
+                    x = 0.03 * 4.;
+                }
+                if (i == 0) {
+                    angle = 0;
+                    x = 0;
+                }
+                Quat rotation(AngleAxis(angle, Vector3::UnitY()));
+                Vector3 pos = Vector3(x, y, z);
+                q.segment<7>(7 * i) << rotation.coeffs(), pos; // orientation and position
+                dq.segment<7>(7 * i) << 0., 0., 0., 1., 0., 0., 0.; // velocity
+            }
+
+            // add ground contact
+            //Matrix3 R = Eigen::AngleAxis<dtype>(-constants::pi / 2., Vector3::UnitX()).matrix();
+            Matrix4 E_g = Matrix4::Identity();
+
+            sim->add_robot(robot);
+            sim->set_ground_plane(new BodyPlane(sim, E_g));
+            sim->set_state_init(q, dq);
+            sim->init();
+            return sim;
+            break;
+        }
         case 13:
         {
             // Circular Tower
             // construct simulation
             options->_2psp_iter_max = 45;
             options->_2psp_tol = math::eps;
+            options->_2psp_stable_tol = 1;
+
             Model* sim = new Model(options, "Scene 13");
 
             // define robot
@@ -480,7 +540,7 @@ namespace _2psp{
         }
         case 15: 
         {
-            // Stacing: Jenga Add
+            // Stacking: Drop
             // construct simulation
             options->_2psp_iter_max = 75;
             options->_2psp_tol = math::eps_big;

@@ -42,11 +42,12 @@ namespace _2psp {
             int _substep_vel; // substep for temporal gauss seidel
             int _2psp_iter_max;
             dtype _2psp_tol;
+            dtype _2psp_stable_tol;
             string _solver; // [2PSP, TGS]
             string _unit; // ["cm-g", "m-kg"]
 
-            Options(Vector3 gravity = -980. * Vector3::UnitZ(), dtype h = 1.0 / 60, int substep = 50, int substep_vel = 10, int sp_iter_max = 75, dtype sp_tol = math::eps_big, string solver = "TGS", string unit = "cm-g") :
-                _gravity(gravity), _h(h), _substep(substep), _substep_vel(substep_vel), _2psp_iter_max(sp_iter_max), _2psp_tol(sp_tol), _solver(solver), _unit(unit) {}
+            Options(Vector3 gravity = -980. * Vector3::UnitZ(), dtype h = 1.0 / 60, int substep = 50, int substep_vel = 10, int sp_iter_max = 75, dtype sp_tol = math::eps_big, dtype sps_tol= 1e-1, string solver = "TGS", string unit = "cm-g") :
+                _gravity(gravity), _h(h), _substep(substep), _substep_vel(substep_vel), _2psp_iter_max(sp_iter_max), _2psp_tol(sp_tol), _2psp_stable_tol(sps_tol), _solver(solver), _unit(unit) {}
         };
 
         Options* _options;
@@ -105,6 +106,7 @@ namespace _2psp {
         // -------------------- forward dynamics related -------------------
         std::string _name;
         int _step_count; // number of steps in the simulation
+        int _iter_count; // total iteration count (only used in 2PSP)
 
         // robot related
         vector<Robot*> _robots;

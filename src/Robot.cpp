@@ -89,9 +89,19 @@ namespace _2psp {
 		for (size_t i = 0; i < _bodies.size(); i++) {
 			_bodies[i]->update_substep_states(h);
 		}
+
+		//for (size_t i = 0; i < _bodies.size(); i++) {
+		//	std::cout << "Body " << i << " States Phi:\n" << _bodies[i]->_phi.transpose() << std::endl;
+		//	std::cout << "Body " << i << " States Phi_dt:\n" << _bodies[i]->_phi_dt.transpose() << std::endl;
+		//}
+		//std::cout << "Lambdas: ";
+		//for (size_t i = 0; i < _collisions.size(); i++) {
+		//	std::cout << _collisions[i]._lambdas.transpose();
+		//}
+		//std::cout << std::endl;
 	}
 
-	bool Robot::solve_collisions_2psp(dtype h, int& solve_count, int sp_iter_max, dtype tol) {
+	bool Robot::solve_collisions_2psp(dtype h, int& solve_count, int sp_iter_max, dtype tol, dtype stable_tol) {
 		int up_iter_max = sp_iter_max;
 		int down_iter_max = sp_iter_max;
 		bool upward_success = true;
@@ -163,7 +173,7 @@ namespace _2psp {
 			for (size_t i = 0; i < _collision_layer[layer].size(); i++) {
 				if (_collisions[_collision_layer[layer][i]]._shock_porpagate) {
 					_collisions[_collision_layer[layer][i]].compute_c(h);
-					if ((_collisions[_collision_layer[layer][i]]._c.row(0).array() > 1).any()) {
+					if ((_collisions[_collision_layer[layer][i]]._c.row(0).array() > stable_tol).any()) {
 						//std::cout << "rs_normal :" << _collisions[_collision_layer[layer][i]]._c.row(0) << std::endl;
 						//std::cout << "body1 layer:" << _collisions[_collision_layer[layer][i]]._body1->_layer << std::endl;
 						//std::cout << "body2 layer:" << _collisions[_collision_layer[layer][i]]._body2->_layer << std::endl;
@@ -232,7 +242,7 @@ namespace _2psp {
 				for (size_t i = 0; i < _collision_layer[layer].size(); i++) {
 					if (_collisions[_collision_layer[layer][i]]._shock_porpagate) {
 						_collisions[_collision_layer[layer][i]].compute_c(h);
-						if ((_collisions[_collision_layer[layer][i]]._c.row(0).array() > 1).any()) {
+						if ((_collisions[_collision_layer[layer][i]]._c.row(0).array() > stable_tol).any()) {
 							//std::cout << "rs_normal :" << _collisions[_collision_layer[layer][i]]._c.row(0) << std::endl;
 							//std::cout << "body1 layer:" << _collisions[_collision_layer[layer][i]]._body1->_layer << std::endl;
 							//std::cout << "body1 phi:" << _collisions[_collision_layer[layer][i]]._body1->_phi.transpose() << std::endl;
@@ -279,6 +289,10 @@ namespace _2psp {
 				_collisions[_collision_layer[layer][i]].solve_vel_tan(h);
 			}
 		}
+
+		for (size_t i = 0; i < _bodies.size(); i++) {
+			_bodies[i]->update_substep_states(h);
+		}
 	}
 
 	void Robot::interagate_state() {
@@ -299,6 +313,8 @@ namespace _2psp {
 			size_t ind = _collision_layer[0][i];
 			_collisions[ind]._body1->_layer = 1;
 			_collisions[ind]._body2->_layer = 0;
+			//std::cout << "body1:" << _collisions[ind]._body1->_index << ", body2:" << _collisions[ind]._body2->_index << std::endl;
+			//std::cout << "body1 layer:" << _collisions[ind]._body1->_layer << ", body2 layer:" << _collisions[ind]._body2->_layer << std::endl;
 			std::queue<Body*> body_queue;
 			body_queue.push(_collisions[ind]._body1);
 			while(!body_queue.empty()) {

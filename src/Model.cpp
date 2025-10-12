@@ -2,6 +2,7 @@
 #include "Robot.h"
 #include "Body/BodyCuboid.h"
 #include "Body/BodyPlane.h"
+#include "Body/BodyMesh.h"
 #include "CollisionDetection/CollisionDetection.h"
 #include <iostream>
 #include <fstream>
@@ -13,7 +14,8 @@ namespace _2psp {
 		_options(options),
 		_name(name),
 		_ndof_m(0),
-		_step_count(0)
+		_step_count(0),
+		_iter_count(0)
 	{
 		_q_his.clear();
 		_dq_his.clear();
@@ -46,6 +48,7 @@ namespace _2psp {
 	void Model::reset() {
 		set_state(_q_init, _dq_init);
 		_step_count = 0;
+		_iter_count = 0;
 		_q_his.clear();
 		_dq_his.clear();
 	}
@@ -99,49 +102,88 @@ namespace _2psp {
 	}
 
 	void Model::collision_detection() {
-		if (_options->_solver == "TGS") {
-			// Ground collision
-			std::vector<size_t> collisions;
-			for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
-				if (collision_detection_ground_cuboid(_ground_plane, static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), _robots[0]->_collisions))
-					collisions.push_back(_robots[0]->_collisions.size() - 1);
-			}
-
-
-			// Free objects collision
-			for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
-				for (size_t j = i + 1; j < _robots[0]->_bodies.size(); j++) {
-					if (collision_detection_cuboid_cuboid(static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), static_cast<BodyCuboid*>(_robots[0]->_bodies[j]), _robots[0]->_collisions))
+		if (_name == "Scene 12") {
+			if (_options->_solver == "TGS") {
+				// Ground collision
+				std::vector<size_t> collisions;
+				for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+					if (collision_detection_ground_mesh(_ground_plane, static_cast<BodyMesh*>(_robots[0]->_bodies[i]), _robots[0]->_collisions))
 						collisions.push_back(_robots[0]->_collisions.size() - 1);
 				}
-			}
-			_robots[0]->_collision_layer.push_back(collisions);
-		}
-		else {
-			// Ground collision
-			std::vector<size_t> ground_collision;
 
-			for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
-				if (collision_detection_ground_cuboid(_ground_plane, static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), _robots[0]->_collisions))
-					ground_collision.push_back(_robots[0]->_collisions.size() - 1);
-			}
 
-			// Free objects collision
-			for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
-				for (size_t j = i + 1; j < _robots[0]->_bodies.size(); j++) {
-					if (collision_detection_cuboid_cuboid(static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), static_cast<BodyCuboid*>(_robots[0]->_bodies[j]), _robots[0]->_collisions) && static_cast<BodyCuboid*>(_robots[0]->_collisions.back()._body2)->_is_infinite_mass)
+				// Free objects collision
+				for (size_t i = 0; i < _robots[0]->_bodies.size() - 1; i++) {
+					if (collision_detection_mesh_mesh(static_cast<BodyMesh*>(_robots[0]->_bodies[i]), static_cast<BodyMesh*>(_robots[0]->_bodies[i+1]), _robots[0]->_collisions))
+						collisions.push_back(_robots[0]->_collisions.size() - 1);
+				}
+				_robots[0]->_collision_layer.push_back(collisions);
+			}
+			else {
+				// Ground collision
+				std::vector<size_t> ground_collision;
+
+				for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+					if (collision_detection_ground_mesh(_ground_plane, static_cast<BodyMesh*>(_robots[0]->_bodies[i]), _robots[0]->_collisions))
 						ground_collision.push_back(_robots[0]->_collisions.size() - 1);
 				}
+				//std::cout << "ground collison size:" << ground_collision.size() << std::endl;
+				// Free objects collision
+				for (size_t i = 0; i < _robots[0]->_bodies.size() - 1; i++) {
+					if (collision_detection_mesh_mesh(static_cast<BodyMesh*>(_robots[0]->_bodies[i]), static_cast<BodyMesh*>(_robots[0]->_bodies[i+1]), _robots[0]->_collisions) && static_cast<BodyMesh*>(_robots[0]->_collisions.back()._body2)->_is_infinite_mass)
+						ground_collision.push_back(_robots[0]->_collisions.size() - 1);
+				}
+				_robots[0]->_collision_layer.push_back(ground_collision);
+				_robots[0]->construct_collision_order();
+				//std::cout << "collison number:" << _robots[0]->_collisions.size() << std::endl;
 			}
-			_robots[0]->_collision_layer.push_back(ground_collision);
-			_robots[0]->construct_collision_order();
+		}
+		else
+		{
+			if (_options->_solver == "#TGS") {
+				// Ground collision
+				std::vector<size_t> collisions;
+				for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+					if (collision_detection_ground_cuboid(_ground_plane, static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), _robots[0]->_collisions))
+						collisions.push_back(_robots[0]->_collisions.size() - 1);
+				}
+
+
+				// Free objects collision
+				for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+					for (size_t j = i + 1; j < _robots[0]->_bodies.size(); j++) {
+						if (collision_detection_cuboid_cuboid(static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), static_cast<BodyCuboid*>(_robots[0]->_bodies[j]), _robots[0]->_collisions))
+							collisions.push_back(_robots[0]->_collisions.size() - 1);
+					}
+				}
+				_robots[0]->_collision_layer.push_back(collisions);
+			}
+			else {
+				// Ground collision
+				std::vector<size_t> ground_collision;
+
+				for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+					if (collision_detection_ground_cuboid(_ground_plane, static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), _robots[0]->_collisions))
+						ground_collision.push_back(_robots[0]->_collisions.size() - 1);
+				}
+
+				// Free objects collision
+				for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+					for (size_t j = i + 1; j < _robots[0]->_bodies.size(); j++) {
+						if (collision_detection_cuboid_cuboid(static_cast<BodyCuboid*>(_robots[0]->_bodies[i]), static_cast<BodyCuboid*>(_robots[0]->_bodies[j]), _robots[0]->_collisions) && static_cast<BodyCuboid*>(_robots[0]->_collisions.back()._body2)->_is_infinite_mass)
+							ground_collision.push_back(_robots[0]->_collisions.size() - 1);
+					}
+				}
+				_robots[0]->_collision_layer.push_back(ground_collision);
+				_robots[0]->construct_collision_order();
+			}
 		}
 	}
 
 	void Model::forward(int num_steps, bool save_history) {
 		for(int i = 0; i < num_steps; i++) {
 			update_robot();
-			//std::cout << "Body States:\n" << _q.transpose() << std::endl;
+
 			collision_detection();
 			step_unconstrained();
 
@@ -152,13 +194,24 @@ namespace _2psp {
 			else
 				assert(false && ("Solver not supported. Currently supported solver: TGS, 2PSP."));
 
+			//for (size_t i = 0; i < _robots[0]->_collisions.size(); i++) {
+			//	std::cout << "Collision " << i << " lambdas: " << _robots[0]->_collisions[i]._lambdas.transpose() << std::endl;
+			//}
+
+			//for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+			//	std::cout << "Body " << i << " Phi: " << _robots[0]->_bodies[i]->_phi.transpose() << std::endl;
+			//	std::cout << "Body " << i << " Phi_dt: " << _robots[0]->_bodies[i]->_phi_dt.transpose() << std::endl;
+			//}
+
 			solve_velocity();
+
 			if(save_history) {
 				_q_his.push_back(_q);
 				_dq_his.push_back(_dq);
 			}
 			_step_count++;
-			//std::cout << "Body States dq" << i <<":\n" << _dq.transpose().maxCoeff() << std::endl;
+			//std::cout << "Body States q" << i << ":\n" << _q.transpose() << std::endl;
+			//std::cout << "Body States dq" << i <<":\n" << _dq.transpose() << std::endl;
 			//if(i==6)
 			//	std::cout << "Finish Step: " << i << std::endl;
 		}
@@ -184,8 +237,9 @@ namespace _2psp {
 
 	void Model::two_pass_shock_propagation() {
 		int solve_count = 0;
+		//_iter_count = 0;
 		_robots[0]-> init_collisions();
-		if (!_robots[0]->solve_collisions_2psp(_options->_h, solve_count, _options->_2psp_iter_max, _options->_2psp_tol)) {
+		if (!_robots[0]->solve_collisions_2psp(_options->_h, solve_count, _options->_2psp_iter_max, _options->_2psp_tol, _options->_2psp_stable_tol)) {
 			_robots[0]->reset();
 			dtype hs = _options->_h / 150;
 			for (int i = 0; i < 150; i++) {
@@ -193,16 +247,19 @@ namespace _2psp {
 					_robots[j]->solve_collisions(hs);
 				}
 			}
+			_iter_count += solve_count / _robots[0]->_n_c + 150;
 			//std::cout << "2PSP + TGS Iteration number :" << solve_count / _robots[0]->_n_c + 150 << std::endl;
 		}
-		//else
-		//	std::cout << "2PSP Iteration number :" << solve_count / _robots[0]->_n_c  << std::endl;
+		else
+			_iter_count += solve_count / _robots[0]->_n_c;
+		//std::cout << "2PSP Iteration number :" << _iter_count  << std::endl;
 	}
 
 	void Model::solve_velocity() {
 		dtype hs = _options->_h / _options->_substep_vel;
 		for (size_t i = 0; i < _robots.size(); i++) {
 			for (size_t j = 0; j < _robots[i]->_bodies.size(); j++) {
+				_robots[i]->_bodies[j]->_delta_phi = _robots[i]->_bodies[j]->_phi_dt;
 				_robots[i]->_bodies[j]->_phi_dt.setZero();
 			}
 		}
@@ -211,6 +268,15 @@ namespace _2psp {
 				_robots[j]->solve_velocity(hs);
 			}
 		}
+		//for (size_t i = 0; i < _robots[0]->_collisions.size(); i++) {
+		//	std::cout << "Collision " << i << " lambdas: " << _robots[0]->_collisions[i]._lambdas.transpose() << std::endl;
+		//}
+
+		//for (size_t i = 0; i < _robots[0]->_bodies.size(); i++) {
+		//	std::cout << "Body " << i << " Phi: " << _robots[0]->_bodies[i]->_phi.transpose() << std::endl;
+		//	std::cout << "Body " << i << " Phi_dt: " << _robots[0]->_bodies[i]->_phi_dt.transpose() << std::endl;
+		//}
+
 		for (size_t i = 0; i < _robots.size(); i++) {
 			_robots[i]->interagate_state();
 		}
