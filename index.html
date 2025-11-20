@@ -1,0 +1,635 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>2PSP</title>
+    
+    <!-- Google Fonts: Libre Baskerville (Headers), Open Sans (Body) -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Open+Sans:wght@400;600&family=JetBrains+Mono:wght@400&display=swap" rel="stylesheet">
+
+    <!-- MathJax -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+
+    <style>
+        :root {
+            /* Warm / Off-White Theme based on the reference */
+            --bg-body: #f9f9f9;       
+            --text-main: #1a1a1a;     
+            --text-muted: #555;
+            --accent: #e86a3e;        /* Warm accent for links/emojis */
+            --link-color: #3366cc;    /* Standard academic link blue or dark grey */
+            
+            --font-serif: 'Libre Baskerville', serif;
+            --font-sans: 'Open Sans', sans-serif;
+            
+            --container-width: 1080px;
+        }
+
+        body {
+            font-family: var(--font-sans);
+            background-color: var(--bg-body);
+            color: var(--text-main);
+            margin: 0;
+            padding: 0;
+            line-height: 1.6;
+            font-size: 17px;
+            -webkit-font-smoothing: antialiased;
+        }
+
+        /* --- CONTAINER --- */
+        .container {
+            max-width: var(--container-width);
+            margin: 0 auto;
+            padding: 60px 20px 100px;
+        }
+
+        /* --- HEADER SECTION --- */
+        header.project-header {
+            margin-bottom: 40px;
+            text-align: left;
+        }
+
+        .paper-title {
+            font-family: var(--font-serif);
+            font-size: 2.4rem;
+            font-weight: 400;
+            margin: 0 0 10px 0;
+            line-height: 1.2;
+            color: #000;
+        }
+
+        .conference-name {
+            font-family: var(--font-sans);
+            font-size: 1rem;
+            color: var(--text-muted);
+            margin-bottom: 25px;
+            font-weight: 400;
+        }
+
+        .author-list {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+            margin-bottom: 20px;
+            font-family: var(--font-serif);
+            font-size: 1.1rem;
+        }
+
+        .author-row {
+            display: flex;
+            align-items: baseline;
+            gap: 10px;
+        }
+
+        .author-name { font-weight: 700; color: #000; }
+        .author-affil { font-weight: 400; font-size: 0.95rem; color: #444; }
+
+        .teaser-highlight {
+            margin-top: 20px;
+            font-family: var(--font-serif);
+            font-style: italic;
+            color: #444;
+            font-size: 1.1rem;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        /* --- TEASER IMAGE --- */
+        .teaser-container { margin: 30px 0 50px 0; }
+
+        .teaser-image-wrapper {
+            background: #fff;
+            border-radius: 2px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2); 
+            overflow: hidden;
+            margin-bottom: 15px;
+        }
+        .teaser-image-wrapper svg, 
+        .teaser-image-wrapper img {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+
+        .caption {
+            font-family: var(--font-sans);
+            font-size: 0.9rem;
+            color: #666;
+            text-align: justify;
+            line-height: 1.5;
+            margin-top: 15px;
+        }
+        .caption strong { font-weight: 600; color: #333; }
+
+        /* --- BUTTONS --- */
+        .header-actions {
+            display: flex;
+            gap: 15px;
+            margin-top: 25px;
+        }
+        
+        .btn {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 10px 24px;
+            background: #333;
+            color: #fff;
+            border-radius: 30px; /* Pill shape */
+            font-weight: 600;
+            font-size: 1rem;
+            transition: transform 0.2s, background 0.2s;
+            border: 1px solid transparent;
+            text-decoration: none;
+        }
+        
+        .btn:hover {
+            background: #000;
+            transform: translateY(-2px);
+            text-decoration: none;
+        }
+
+        .btn-secondary {
+            background: #fff;
+            color: #333;
+            border: 1px solid #ccc;
+        }
+        
+        .btn-secondary:hover {
+            background: #f4f4f4;
+            border-color: #bbb;
+        }
+
+        /* --- SECTIONS --- */
+        h2 {
+            font-family: var(--font-serif);
+            font-size: 1.5rem;
+            font-weight: 400;
+            color: #000;
+            margin-top: 60px;
+            margin-bottom: 20px;
+            border-bottom: none;
+        }
+
+        p {
+            margin-bottom: 1.5em;
+            color: #333;
+            text-align: justify;
+        }
+
+        /* --- VIDEO STYLES --- */
+        .video-section {
+            margin: 40px 0;
+        }
+
+        .video-wrapper {
+            margin-bottom: 30px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-radius: 2px;
+            overflow: hidden;
+            background: #000;
+            max-width: 500px;
+            margin-left: auto;
+            margin-right: auto;
+        }
+
+        .video-wrapper video {
+            display: block;
+            width: 100%;
+            height: auto;
+        }
+        
+        .video-placeholder {
+            width: 100%;
+            height: 0;
+            padding-bottom: 56.25%; /* 16:9 */
+            position: relative;
+            background: #222;
+            cursor: pointer;
+        }
+        
+        .play-btn {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            width: 60px;
+            height: 60px;
+            border: 2px solid rgba(255,255,255,0.8);
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            transition: transform 0.2s;
+        }
+
+        .video-placeholder:hover .play-btn { transform: translate(-50%, -50%) scale(1.1); }
+        
+        .play-triangle {
+            width: 0; height: 0;
+            border-left: 15px solid #fff;
+            border-top: 10px solid transparent;
+            border-bottom: 10px solid transparent;
+            margin-left: 5px;
+        }
+
+        /* --- STACKED FIGURES --- */
+        .method-figure {
+            margin: 40px 0;
+        }
+        .method-figure img, .method-figure svg {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        /* --- SLIDER --- */
+        .slider-wrapper {
+            position: relative;
+            width: 100%;
+            margin: 40px 0;
+            background: #eee;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.15);
+            border-radius: 2px;
+            overflow: hidden;
+        }
+        .slider-track {
+            display: flex;
+            transition: transform 0.4s cubic-bezier(0.25, 1, 0.5, 1);
+        }
+        .slide {
+            min-width: 100%;
+            height: 650px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            background: #fff;
+        }
+        .slide-content {
+            text-align: center;
+            width: 100%;
+        }
+        .slider-controls {
+            position: absolute;
+            top: 50%;
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            transform: translateY(-50%);
+            pointer-events: none;
+            padding: 0 20px;
+            box-sizing: border-box;
+        }
+        .slider-btn {
+            pointer-events: auto;
+            background: rgba(255,255,255,0.9);
+            color: #000;
+            border: none;
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            transition: background 0.2s;
+        }
+        .slider-btn:hover { background: #fff; }
+        .slider-dots {
+            position: absolute;
+            bottom: 15px;
+            width: 100%;
+            text-align: center;
+        }
+        .dot {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background: rgba(0,0,0,0.3);
+            border-radius: 50%;
+            margin: 0 6px;
+            cursor: pointer;
+        }
+        .dot.active { background: #000; }
+
+        /* --- BIBTEX --- */
+        .bibtex-section {
+            margin-top: 80px;
+            background: #f4f4f4;
+            padding: 25px;
+            border-radius: 4px;
+            border-left: 4px solid #ccc;
+            position: relative; /* Added for button positioning */
+        }
+        .bibtex-header {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #333;
+        }
+        .bibtex-code {
+            font-family: 'JetBrains Mono', monospace;
+            font-size: 0.85rem;
+            color: #333;
+            white-space: pre-wrap;
+            line-height: 1.4;
+        }
+        
+        /* Copy Button Styles */
+        .copy-btn {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            padding: 6px 12px;
+            font-size: 0.85rem;
+            font-family: var(--font-sans);
+            font-weight: 600;
+            color: #555;
+            background: #fff;
+            border: 1px solid #ccc;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .copy-btn:hover {
+            background: #eee;
+            color: #333;
+            border-color: #bbb;
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="container">
+
+        <!-- HEADER -->
+        <header class="project-header">
+            <h1 class="paper-title">Two-Pass Shock Propagation for Stable Stacking with Gauss–Seidel</h1>
+            
+            <div class="conference-name">SCA 2025</div>
+
+            <div class="author-list">
+                <div class="author-row">
+                    <span class="author-name">Ziyan Xiong</span>
+                    <span class="author-affil">Texas A&M University</span>
+                </div>
+                <div class="author-row">
+                    <span class="author-name">Andrew Leach</span>
+                    <span class="author-affil">Texas A&M University</span>
+                </div>
+                <div class="author-row">
+                    <span class="author-name">Griffith Thomas</span>
+                    <span class="author-affil">Texas A&M University</span>
+                </div>
+                <div class="author-row">
+                    <span class="author-name">Shinjiro Sueda</span>
+                    <span class="author-affil">Texas A&M University</span>
+                </div>
+            </div>
+
+            <!-- Buttons Section -->
+            <div class="header-actions">
+                <a href="https://github.com/ZiyanXiong/2PSP" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 19c-5 1.5-5-2.5-7-3m14 6v-3.87a3.37 3.37 0 0 0-.94-2.61c3.14-.35 6.44-1.54 6.44-7A5.44 5.44 0 0 0 20 4.77 5.07 5.07 0 0 0 19.91 1S18.73.65 16 2.48a13.38 13.38 0 0 0-7 0C6.27.65 5.09 1 5.09 1A5.07 5.07 0 0 0 5 4.77a5.44 5.44 0 0 0-1.5 3.78c0 5.42 3.3 6.61 6.44 7A3.37 3.37 0 0 0 9 18.13V22"></path></svg>
+                    Code
+                </a>
+                <a href="https://dl.acm.org/doi/10.1145/3747867" class="btn btn-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"></path><polyline points="14 2 14 8 20 8"></polyline><line x1="16" y1="13" x2="8" y2="13"></line><line x1="16" y1="17" x2="8" y2="17"></line><polyline points="10 9 9 9 8 9"></polyline></svg>
+                    Paper
+                </a>
+            </div>
+        </header>
+
+        <!-- TEASER IMAGE -->
+        <div class="teaser-container">
+            <div class="teaser-image-wrapper">
+                <img src="assets/teaser.gif" width="100%" alt="Teaser Image">
+            </div>
+            <div class="caption">
+                <strong>Fig 1. Stacking.</strong> Stacking is common in both everyday life and industrial production. Our two-pass shock propagation method enables stable stacking of complex structures in realistic settings.
+            </div>
+        </div>
+
+        <!-- SECTION 1: INTRODUCTION (2 Videos) -->
+        <h2>Introduction</h2>
+        <p>
+            Over the years, <a href="https://developer.nvidia.com/physx-sdk" target="_blank" rel="noopener noreferrer">PhysX</a> has gained popularity as a physics library for real-time graphics and robotics.
+            Although widely popular, PhysX and other Gauss–Seidel-based methods for rigid body simulation face a significant limitation: instability in handling frictional stacking.
+        </p>
+        <p>
+            To demonstrate such limitation, we present two scenarios below. The first video shows the reuslt from PhysX while simulating large objects. The second video demonstrates the artifacts from PhysX while simulating table-top sized objects.
+        </p>
+
+        <div class="video-section">
+            <!-- Video 1 -->
+            <div class="video-wrapper">
+                <video width="500" height="500" controls>
+                    <source src="assets/PhysX-large.mp4" type="video/mp4">
+                </video>
+            </div>
+            <div class="caption" style="margin-bottom: 40px;">
+                <strong>Video 1: PhysX stacking Large Objects.</strong> By setting the gravity to 9.81 m/s², we set the unit for simulation to meters. Then the box length will be 4 meters, and density will be 10 kg/m^3 which means one box in this simulation will be larger than a car and only have 1% density of water.
+            </div>
+
+            <!-- Video 2 -->
+            <div class="video-wrapper">
+                <video width="500" height="500" controls>
+                    <source src="assets/PhysX-table-top.mp4" type="video/mp4">
+                </video>
+            </div>
+            <div class="caption">
+                <strong>Video 2: PhysX stacking Table-Top Objects.</strong> After changing the unit to cm and density to 1 g/cm^3 which is close to the density of oak, we surprisingly find that PhysX can’t get stable results.
+            </div>
+        </div>
+
+        <!-- SECTION 2: METHODOLOGY (2 Stacked Pictures) -->
+        <h2>Methodology</h2>
+        <p>
+            The instability inherent in Gauss–Seidel approaches arises from the slow propagation of information between rigid bodies. To address this, we leverage shock propagation and design a two-pass shock-propagation method.
+        </p>
+
+        <div class="method-figure">
+            <img src="assets//Shock-Propagation-up.png" alt="Shock Propagation Diagram">
+            <div class="caption">
+                <strong>Fig 2. Shock Propagation Upward Pass.</strong> The upward pass of our two-pass shock-propagation method is similar to the standard shock-propagation method but we record the impulses that did not get applied to the Bottom body in each layer.
+            </div>
+        </div>
+        <p>
+            After the upward pass, we begin the downward pass from the top layer to the bottom layer. In this pass, we apply the recorded impulses from the upward pass to each layer.
+        </p>
+
+        <div class="method-figure">
+            <img src="assets//Shock-Propagation-down.png" alt="Shock Propagation Downward Pass">
+            <div class="caption">
+                <strong>Fig 3. Shock Propagation Downward Pass.</strong> The downward pass of our two-pass shock-propagation method applies the recorded impulses first then solve the newly introduced constraints violation.
+            </div>
+        </div>
+
+        <!-- SECTION 3: RESULTS (GIF Slider) -->
+        <h2>Results</h2>
+        <p>
+            We tested our method on varying scenes and compared the results with the Gauss–Seidel solver with different iterations.
+        </p>
+
+        <div class="slider-wrapper">
+            <div class="slider-track" id="sliderTrack">
+                <!-- Slide 1 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result1.gif" alt="Result for STACKING Scene">
+                        <p style="text-align: center; color: #666; margin: 0;">A stacking scene with 10 boxes, each measuring 4x4x4cm^3 and weighing 64g. </p>
+                    </div>
+                </div>
+
+                <!-- Slide 2 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result2.gif" alt="Result for TILTED Scene">
+                        <p style="text-align: center; color: #666; margin: 0;">By tilting the ground plane, we verify that our approach works with non-vertical normals. </p>
+                    </div>
+                </div>
+
+                <!-- Slide 3 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result3.gif" alt="Result for BOWL Scene">
+                        <p style="text-align: center; color: #666; margin: 0;"> Our method works for convex objects as well. </p>
+                    </div>
+                </div>
+
+                <!-- Slide 4 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result4.gif" alt="Result for INVERTED Scene">
+                        <p style="text-align: center; color: #666; margin: 0;"> Our method can readily handle this challenging scenario involving large mass ratios. </p>
+                    </div>
+                </div>
+
+                <!-- Slide 5 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result5.gif" alt="Result for BRIDGE Scene">
+                        <p style="text-align: center; color: #666; margin: 0;"> This scene features large cycles in the contact graph as well as boxes of unequal size. </p>
+                    </div>
+                </div>
+                <!-- Slide 6 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result6.gif" alt="Result for CIRCULAR Scene">
+                        <p style="text-align: center; color: #666; margin: 0;"> We throw a box into a circular tower formed by boxes. </p>
+                    </div>
+                </div>
+                <!-- Slide 7 -->
+                <div class="slide">
+                    <div class="slide-content">
+                        <img src="assets/Result7.gif" alt="Result for JENGA Scene">
+                        <p style="text-align: center; color: #666; margin: 0;"> A block is first dropped onto a tower of blocks. </p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="slider-controls">
+                <button class="slider-btn" onclick="moveSlide(-1)">&#10094;</button>
+                <button class="slider-btn" onclick="moveSlide(1)">&#10095;</button>
+            </div>
+            
+            <div class="slider-dots">
+                <span class="dot active" onclick="currentSlide(0)"></span>
+                <span class="dot" onclick="currentSlide(1)"></span>
+                <span class="dot" onclick="currentSlide(2)"></span>
+                <span class="dot" onclick="currentSlide(3)"></span>
+                <span class="dot" onclick="currentSlide(4)"></span>
+                <span class="dot" onclick="currentSlide(5)"></span>
+                <span class="dot" onclick="currentSlide(6)"></span>
+            </div>
+        </div>
+
+        <!-- BIBTEX -->
+        <div class="bibtex-section">
+            <button class="copy-btn" onclick="copyBibtex()">Copy</button>
+            <div class="bibtex-header">BibTeX</div>
+            <div id="bibtex-content" class="bibtex-code">
+                @article{10.1145/3747867,
+                author = {Xiong, Ziyan and Leach, Andrew and Thomas, Griffith and Sueda, Shinjiro},
+                title = {Two-Pass Shock Propagation for Stable Stacking with Gauss-Seidel},
+                year = {2025},
+                issue_date = {August 2025},
+                publisher = {Association for Computing Machinery},
+                address = {New York, NY, USA},
+                volume = {8},
+                number = {4},
+                url = {https://doi.org/10.1145/3747867},
+                doi = {10.1145/3747867},
+                journal = {Proc. ACM Comput. Graph. Interact. Tech.},
+                month = aug,
+                articleno = {46},
+                numpages = {18}
+                }
+            </div>
+        </div>
+
+    </div>
+
+    <script>
+        /* --- SLIDER LOGIC --- */
+        let slideIndex = 0;
+        const track = document.getElementById('sliderTrack');
+        const dots = document.querySelectorAll('.dot');
+        const totalSlides = 7;
+
+        function updateSlider() {
+            track.style.transform = `translateX(-${slideIndex * 100}%)`;
+            dots.forEach((dot, index) => {
+                dot.classList.toggle('active', index === slideIndex);
+            });
+        }
+
+        function moveSlide(n) {
+            slideIndex += n;
+            if (slideIndex >= totalSlides) slideIndex = 0;
+            if (slideIndex < 0) slideIndex = totalSlides - 1;
+            updateSlider();
+        }
+
+        function currentSlide(n) {
+            slideIndex = n;
+            updateSlider();
+        }
+        
+        /* --- BIBTEX COPY LOGIC --- */
+        function copyBibtex() {
+            const codeBlock = document.getElementById('bibtex-content');
+            const range = document.createRange();
+            range.selectNode(codeBlock);
+            window.getSelection().removeAllRanges();
+            window.getSelection().addRange(range);
+            try {
+                document.execCommand('copy');
+                const btn = document.querySelector('.copy-btn');
+                const originalText = btn.innerText;
+                btn.innerText = 'Copied!';
+                btn.style.background = '#e86a3e'; // Uses the accent color
+                btn.style.color = '#fff';
+                btn.style.borderColor = '#e86a3e';
+                
+                setTimeout(() => {
+                    btn.innerText = originalText;
+                    btn.style.background = '#fff';
+                    btn.style.color = '#555';
+                    btn.style.borderColor = '#ccc';
+                }, 2000);
+            } catch (err) { console.error('Failed to copy', err); }
+            window.getSelection().removeAllRanges();
+        }
+    </script>
+</body>
+</html>
